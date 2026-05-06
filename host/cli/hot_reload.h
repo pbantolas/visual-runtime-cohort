@@ -1,0 +1,74 @@
+#pragma once
+
+#include <dlfcn.h>
+#include <filesystem>
+#include <cstdio>
+
+namespace fs = std::filesystem;
+
+struct HotLib {
+    HotLib() = default;
+    HotLib(const HotLib&) = delete;
+    HotLib& operator=(const HotLib&) = delete;
+    HotLib(HotLib&& o) noexcept
+        : handle(o.handle), last_modified(o.last_modified),
+          source(std::move(o.source)), active(std::move(o.active))
+    { o.handle = nullptr; }
+
+    ~HotLib() { unload(); }
+
+    static HotLib open(const char* source_path) {
+        HotLib lib;
+        lib.source = source_path;
+        lib.active = lib.source.parent_path() /
+                     (lib.source.stem().string() + "_active" + lib.source.extension().string());
+        lib.load();
+        return lib;
+    }
+
+    bool changed() const {
+        std::error_code ec;
+        auto t = fs::last_write_time(source, ec);
+        return !ec && t != last_modified;
+    }
+
+    bool reload() {
+        unload();
+        return load();
+    }
+
+    void* sym(const char* name) const {
+        if (!handle) return nullptr;
+        void* s = dlsym(handle, name);
+        if (!s) std::fprintf(stderr, "[hot_reload] symbol not found: %s\n", name);
+        return s;
+    }
+
+    explicit operator bool() const { return handle != nullptr; }
+
+private:
+    void* handle         = nullptr;
+    fs::file_time_type last_modified;
+    fs::path source;
+    fs::path active;
+
+    bool load() {
+        std::error_code ec;
+        fs::copy_file(source, active, fs::copy_options::overwrite_existing, ec);
+        if (ec) {
+            std::fprintf(stderr, "[hot_reload] copy failed: %s\n", ec.message().c_str());
+            return false;
+        }
+        handle = dlopen(active.c_str(), RTLD_NOW | RTLD_LOCAL);
+        if (!handle) {
+            std::fprintf(stderr, "[hot_reload] dlopen: %s\n", dlerror());
+            return false;
+        }
+        last_modified = fs::last_write_time(source);
+        return true;
+    }
+
+    void unload() {
+        if (handle) { dlclose(handle); handle = nullptr; }
+    }
+};

@@ -1,0 +1,8 @@
+# build
+build/
+
+# hot reload scratch copy
+**/*_active.dylib
+
+# macOS
+.DS_Store
