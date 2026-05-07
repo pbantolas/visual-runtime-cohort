@@ -1,31 +1,35 @@
 import QuartzCore
 
-public final class EngineManager {
-    private let engine: OpaquePointer
+public final class RuntimeManager {
+    private let bridge: OpaquePointer
 
     public init?(libPath: String) {
-        guard let engine = engine_open(libPath) else {
+        guard let bridge = runtime_open(libPath) else {
             return nil
         }
-        self.engine = engine
+        self.bridge = bridge
     }
 
     deinit {
-        engine_destroy(engine)
+        runtime_destroy(bridge)
     }
 
     func attach(_ layer: CAMetalLayer) {
         let size = layer.bounds.size
         let scale = layer.contentsScale
-        var surface = EngineSurfaceDescriptor(
+        var surface = RuntimeSurfaceDescriptor(
             metal_layer: Unmanaged.passUnretained(layer).toOpaque(),
             width: UInt32(size.width * scale),
             height: UInt32(size.height * scale)
         )
-        engine_attach_surface(engine, &surface)
+        runtime_attach_surface(bridge, &surface)
     }
 
     func tick(_ dt: Float) {
-        engine_tick(engine, dt)
+        runtime_tick(bridge, dt)
+    }
+
+    func reload() {
+        _ = runtime_reload(bridge)
     }
 }

@@ -6,19 +6,19 @@
 
 namespace fs = std::filesystem;
 
-struct HotLib {
-    HotLib() = default;
-    HotLib(const HotLib&) = delete;
-    HotLib& operator=(const HotLib&) = delete;
-    HotLib(HotLib&& o) noexcept
+struct DynamicLibrary {
+    DynamicLibrary() = default;
+    DynamicLibrary(const DynamicLibrary&) = delete;
+    DynamicLibrary& operator=(const DynamicLibrary&) = delete;
+    DynamicLibrary(DynamicLibrary&& o) noexcept
         : handle(o.handle), last_modified(o.last_modified),
           source(std::move(o.source)), active(std::move(o.active))
     { o.handle = nullptr; }
 
-    ~HotLib() { unload(); }
+    ~DynamicLibrary() { unload(); }
 
-    static HotLib open(const char* source_path) {
-        HotLib lib;
+    static DynamicLibrary open(const char* source_path) {
+        DynamicLibrary lib;
         lib.source = source_path;
         lib.active = lib.source;
         lib.load();
@@ -39,7 +39,7 @@ struct HotLib {
     void* sym(const char* name) const {
         if (!handle) return nullptr;
         void* s = dlsym(handle, name);
-        if (!s) std::fprintf(stderr, "[hot_reload] symbol not found: %s\n", name);
+        if (!s) std::fprintf(stderr, "[dynamic_library] symbol not found: %s\n", name);
         return s;
     }
 
@@ -54,7 +54,7 @@ private:
     bool load() {
         handle = dlopen(active.c_str(), RTLD_NOW | RTLD_LOCAL);
         if (!handle) {
-            std::fprintf(stderr, "[hot_reload] dlopen: %s\n", dlerror());
+            std::fprintf(stderr, "[dynamic_library] dlopen: %s\n", dlerror());
             return false;
         }
         last_modified = fs::last_write_time(source);

@@ -18,7 +18,7 @@ let project = Project(
                 .glob("Host/Sources/**/*.cpp"),
             ],
             resources: [.glob(pattern: "Host/Resources/**")],
-            headers: .headers(project: ["Host/Sources/Engine.h"]),
+            headers: .headers(project: ["Host/Sources/RuntimeBridge.h"]),
             settings: .settings(base: [
                 // Exposes the plain C host shim to Swift.
                 "SWIFT_OBJC_BRIDGING_HEADER": "$(SRCROOT)/Host/Sources/Host-Bridging-Header.h",

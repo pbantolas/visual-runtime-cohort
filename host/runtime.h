@@ -1,15 +1,15 @@
 #pragma once
 
-#include "hot_reload.h"
+#include "dynamic_library.h"
 #include "engine_api.h"
 
 #include <cstdint>
 #include <utility>
 
-struct EngineRuntime {
-    EngineRuntime(const EngineRuntime&) = delete;
-    EngineRuntime& operator=(const EngineRuntime&) = delete;
-    EngineRuntime(EngineRuntime&& other) noexcept
+struct Runtime {
+    Runtime(const Runtime&) = delete;
+    Runtime& operator=(const Runtime&) = delete;
+    Runtime(Runtime&& other) noexcept
         : lib_(std::move(other.lib_)),
           api_(other.api_),
           state_(other.state_),
@@ -18,12 +18,12 @@ struct EngineRuntime {
           initialized_(other.initialized_) {
         other.initialized_ = false;
     }
-    ~EngineRuntime() {
+    ~Runtime() {
         shutdown();
     }
 
-    static EngineRuntime open(const char* lib_path) {
-        return EngineRuntime(HotLib::open(lib_path));
+    static Runtime open(const char* lib_path) {
+        return Runtime(DynamicLibrary::open(lib_path));
     }
 
     void attach_surface(SurfaceDescriptor surface) {
@@ -34,7 +34,10 @@ struct EngineRuntime {
 
     bool reload_if_changed() {
         if (!lib_.changed()) return false;
+        return reload();
+    }
 
+    bool reload() {
         shutdown();
         if (!lib_.reload()) return false;
 
@@ -62,7 +65,7 @@ struct EngineRuntime {
     }
 
 private:
-    explicit EngineRuntime(HotLib lib) : lib_(std::move(lib)) {
+    explicit Runtime(DynamicLibrary lib) : lib_(std::move(lib)) {
         if (lib_) {
             bind_api();
             init();
@@ -79,7 +82,7 @@ private:
         initialized_ = true;
     }
 
-    HotLib lib_;
+    DynamicLibrary lib_;
     EngineAPI api_;
     mutable EngineState state_{};
     mutable SurfaceDescriptor surface_{};

@@ -43,11 +43,13 @@ void Renderer::render_frame(float t) {
     CA::MetalDrawable* drawable = layer_->nextDrawable();
     if (!drawable) { pool->release(); return; }
 
-    // Three-phase sine at low amplitude — slow hue drift without full saturation
-    float hue = t * 0.25f;
-    float r = 0.08f + 0.06f * std::sin(hue);
-    float g = 0.08f + 0.06f * std::sin(hue + 2.094f);
-    float b = 0.10f + 0.06f * std::sin(hue + 4.189f);
+    // Keep the clear color moving by at least ~1 8-bit step most frames.
+    // The previous 0.06-amplitude / 0.25-rad/s drift quantized to only ~30
+    // displayable values in BGRA8Unorm, so it visibly held for many frames.
+    float hue = t * 1.0f;
+    float r = 0.35f + 0.30f * std::sin(hue);
+    float g = 0.35f + 0.30f * std::sin(hue + 2.094f);
+    float b = 0.40f + 0.30f * std::sin(hue + 4.189f);
 
     MTL::RenderPassDescriptor* pass = MTL::RenderPassDescriptor::renderPassDescriptor();
     auto* color = pass->colorAttachments()->object(0);

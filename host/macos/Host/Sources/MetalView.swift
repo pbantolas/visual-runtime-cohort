@@ -41,7 +41,7 @@ final class MetalNSView: NSView {
 // MARK: - SwiftUI wrapper
 
 struct MetalView: NSViewRepresentable {
-    let manager: EngineManager
+    let manager: RuntimeManager
 
     func makeCoordinator() -> Coordinator { Coordinator(manager: manager) }
 
@@ -56,11 +56,11 @@ struct MetalView: NSViewRepresentable {
     // MARK: Coordinator - owns the display link and drives engine ticks
 
     final class Coordinator: NSObject {
-        let manager: EngineManager
+        let manager: RuntimeManager
         private var displayLink: CADisplayLink?
         private var lastTime: Double = 0
 
-        init(manager: EngineManager) { self.manager = manager }
+        init(manager: RuntimeManager) { self.manager = manager }
 
         func start(view: MetalNSView) {
             manager.attach(view.metalLayer)

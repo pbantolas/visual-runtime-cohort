@@ -1,4 +1,4 @@
-#include "engine_runtime.h"
+#include "runtime.h"
 
 #include <chrono>
 #include <csignal>
@@ -12,7 +12,7 @@ int main() {
     std::signal(SIGINT, on_signal);
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-    EngineRuntime engine = EngineRuntime::open(ENGINE_LIB_PATH);
+    Runtime engine = Runtime::open(ENGINE_LIB_PATH);
     if (!engine) return 1;
 
     using clock = std::chrono::steady_clock;
