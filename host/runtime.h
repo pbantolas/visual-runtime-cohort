@@ -12,11 +12,13 @@ struct Runtime {
     Runtime(Runtime&& other) noexcept
         : lib_(std::move(other.lib_)),
           api_(other.api_),
+          api_bound_(other.api_bound_),
           state_(other.state_),
           surface_(other.surface_),
           has_surface_(other.has_surface_),
           initialized_(other.initialized_) {
         other.initialized_ = false;
+        other.api_bound_ = false;
     }
     ~Runtime() {
         shutdown();
@@ -67,7 +69,7 @@ struct Runtime {
     }
 
     explicit operator bool() const {
-        return bool(lib_) && bool(api_);
+        return bool(lib_) && api_bound_;
     }
 
 private:
@@ -79,7 +81,21 @@ private:
     }
 
     void bind_api() {
-        api_.bind([this](const char* name) { return lib_.sym(name); });
+        api_ = {};
+        api_bound_ = false;
+
+        auto get_api = reinterpret_cast<EngineGetAPIFn>(lib_.sym("engine_get_api"));
+        if (!get_api) return;
+
+        const EngineAPI* loaded_api = get_api();
+        if (!loaded_api) {
+            std::fprintf(stderr, "[runtime] engine_get_api returned null\n");
+            return;
+        }
+        if (!engine_api_valid(*loaded_api)) return;
+
+        api_ = *loaded_api;
+        api_bound_ = true;
     }
 
     void init() const {
@@ -90,6 +106,7 @@ private:
 
     DynamicLibrary lib_;
     EngineAPI api_;
+    bool api_bound_ = false;
     mutable EngineState state_{};
     mutable SurfaceDescriptor surface_{};
     bool has_surface_ = false;

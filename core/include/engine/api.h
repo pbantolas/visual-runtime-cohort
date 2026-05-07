@@ -14,9 +14,18 @@ struct SurfaceDescriptor {
     uint32_t height;
 };
 
+constexpr uint32_t ENGINE_API_VERSION = 1;
+
+struct EngineAPI {
+    uint32_t abi_version;
+    uint32_t struct_size;
+
+    void (*init)(EngineState*, SurfaceDescriptor*);
+    void (*resize)(EngineState*, uint32_t, uint32_t);
+    void (*update)(EngineState*, float);
+    void (*shutdown)(EngineState*);
+};
+
 extern "C" {
-    void engine_init(EngineState* state, SurfaceDescriptor* surface);
-    void engine_resize(EngineState* state, uint32_t width, uint32_t height);
-    void engine_update(EngineState* state, float dt);
-    void engine_shutdown(EngineState* state);
+    const EngineAPI* engine_get_api();
 }

@@ -1,21 +1,24 @@
 #pragma once
 #include "engine/api.h"
 
-struct EngineAPI {
-    void (*init)(EngineState*, SurfaceDescriptor*) = nullptr;
-    void (*resize)(EngineState*, uint32_t, uint32_t) = nullptr;
-    void (*update)(EngineState*, float)            = nullptr;
-    void (*shutdown)(EngineState*)                 = nullptr;
+#include <cstdio>
 
-    // Accepts any callable (const char*) -> void* so hosts are not coupled
-    // to a specific loading mechanism (dlopen, mock, test stub, etc.)
-    template<typename Lookup>
-    void bind(Lookup lookup) {
-        init   = reinterpret_cast<decltype(init)>(lookup("engine_init"));
-        resize = reinterpret_cast<decltype(resize)>(lookup("engine_resize"));
-        update = reinterpret_cast<decltype(update)>(lookup("engine_update"));
-        shutdown = reinterpret_cast<decltype(shutdown)>(lookup("engine_shutdown"));
+using EngineGetAPIFn = const EngineAPI* (*)();
+
+inline bool engine_api_valid(const EngineAPI& api) {
+    if (api.abi_version != ENGINE_API_VERSION) {
+        std::fprintf(stderr, "[engine_api] incompatible ABI version: got %u, expected %u\n",
+                     api.abi_version, ENGINE_API_VERSION);
+        return false;
     }
-
-    explicit operator bool() const { return init && update; }
-};
+    if (api.struct_size < sizeof(EngineAPI)) {
+        std::fprintf(stderr, "[engine_api] incompatible API size: got %u, expected at least %zu\n",
+                     api.struct_size, sizeof(EngineAPI));
+        return false;
+    }
+    if (!api.init || !api.update) {
+        std::fprintf(stderr, "[engine_api] missing required lifecycle functions\n");
+        return false;
+    }
+    return true;
+}

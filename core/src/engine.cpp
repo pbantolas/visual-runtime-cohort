@@ -7,9 +7,7 @@ static const char* VERSION = "v1"; // change this to demonstrate hot reload
 
 static Renderer g_renderer;
 
-extern "C" {
-
-void engine_init(EngineState* state, SurfaceDescriptor* surface) {
+static void engine_init_impl(EngineState* state, SurfaceDescriptor* surface) {
     state->frame_count  = 0;
     state->elapsed_time = 0.0f;
     g_renderer.init(surface);
@@ -17,18 +15,32 @@ void engine_init(EngineState* state, SurfaceDescriptor* surface) {
     std::fflush(stdout);
 }
 
-void engine_resize(EngineState*, uint32_t width, uint32_t height) {
+static void engine_resize_impl(EngineState*, uint32_t width, uint32_t height) {
     g_renderer.resize(width, height);
 }
 
-void engine_update(EngineState* state, float dt) {
+static void engine_update_impl(EngineState* state, float dt) {
     state->frame_count++;
     state->elapsed_time += dt;
     g_renderer.render_frame(state->elapsed_time);
 }
 
-void engine_shutdown(EngineState*) {
+static void engine_shutdown_impl(EngineState*) {
     g_renderer.shutdown();
+}
+
+extern "C" {
+
+const EngineAPI* engine_get_api() {
+    static const EngineAPI api{
+        ENGINE_API_VERSION,
+        sizeof(EngineAPI),
+        engine_init_impl,
+        engine_resize_impl,
+        engine_update_impl,
+        engine_shutdown_impl,
+    };
+    return &api;
 }
 
 } // extern "C"
