@@ -1,7 +1,7 @@
 add_executable(cli main.cpp)
 target_include_directories(cli PRIVATE
-    ../../core/include   # engine/api.h
-    ..                   # engine_api.h
+    ${CMAKE_SOURCE_DIR}/core/include
+    ${CMAKE_SOURCE_DIR}/host
 )
 target_compile_definitions(cli PRIVATE
     ENGINE_LIB_PATH="${CMAKE_BINARY_DIR}/lib/libengine.dylib"

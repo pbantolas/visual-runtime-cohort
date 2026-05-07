@@ -1,7 +1,7 @@
 add_library(engine SHARED src/engine.cpp)
 target_include_directories(engine PUBLIC
     include
-    ../Vendor/metal-cpp
+    ${CMAKE_SOURCE_DIR}/Vendor/metal-cpp
 )
 target_link_libraries(engine PRIVATE
     "-framework Foundation"
