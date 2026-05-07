@@ -18,6 +18,26 @@ run: build
 reload:
     cmake --build {{build_dir}} --target engine
 
+macos_dir := "host/macos"
+macos_build_dir := "build/macos"
+macos_app := "build/macos/Build/Products/Debug/Host.app"
+
+# build the macOS host app via xcodebuild
+macos-build:
+    xcodebuild -workspace {{macos_dir}}/Host.xcworkspace \
+               -scheme Host \
+               -configuration Debug \
+               -derivedDataPath {{macos_build_dir}} \
+               build
+
+# build and launch the macOS host app
+macos-run: macos-build
+    open {{macos_app}}
+
+# open the macOS host workspace in Xcode
+macos-open:
+    open {{macos_dir}}/Host.xcworkspace
+
 # wipe the build directory
 clean:
     rm -rf {{build_dir}}
