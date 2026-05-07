@@ -2,10 +2,15 @@ build_dir := "build"
 macos_dir := "host/macos"
 macos_build_dir := "build/macos"
 macos_app := "build/macos/Build/Products/Debug/Host.app"
+macos_project := "host/macos/Host.xcodeproj"
+macos_workspace := "host/macos/Host.xcworkspace"
+
+# configure native build files
+configure:
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
 
 # configure + build everything
-build:
-    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
+build: configure
     cmake --build {{build_dir}}
 
 # generate compile_commands.json for clangd / IDE tooling
@@ -17,15 +22,29 @@ compile-commands:
 run: build
     ./{{build_dir}}/host/cli/cli
 
-# rebuild only the engine dylib — triggers hot reload in a running host (terminal 2)
-reload:
+# build the engine dylib
+engine: configure
     cmake --build {{build_dir}} --target engine
 
-# build the macOS host app via xcodebuild
-macos-build:
+# rebuild only the engine dylib — triggers hot reload in a running host (terminal 2)
+reload: engine
+
+# generate the macOS Xcode project from Tuist
+macos-generate:
     #!/usr/bin/env bash
     set -euo pipefail
-    args=(-workspace {{macos_dir}}/Host.xcworkspace -scheme Host -configuration Debug -derivedDataPath {{macos_build_dir}} build)
+    command -v tuist >/dev/null || {
+        echo "error: tuist is required for macOS recipes. Install it, then rerun this command." >&2
+        exit 127
+    }
+    cd {{macos_dir}}
+    tuist generate --no-open
+
+# build the macOS host app via xcodebuild
+macos-build: macos-generate
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=(-project {{macos_project}} -scheme Host -configuration Debug -derivedDataPath {{macos_build_dir}} build)
     if command -v xcbeautify &>/dev/null; then
         xcodebuild "${args[@]}" | xcbeautify
     else
@@ -33,13 +52,13 @@ macos-build:
     fi
 
 # build and launch the macOS host app
-macos-run: macos-build
+macos-run: engine macos-build
     open {{macos_app}}
 
 # open the macOS host workspace in Xcode
-macos-open:
-    open {{macos_dir}}/Host.xcworkspace
+macos-open: macos-generate
+    open {{macos_workspace}}
 
 # wipe all build artifacts
 clean:
-    rm -rf {{build_dir}} {{macos_build_dir}}
+    rm -rf {{build_dir}} compile_commands.json

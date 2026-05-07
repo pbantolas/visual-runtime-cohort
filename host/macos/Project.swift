@@ -8,6 +8,7 @@ let project = Project(
             destinations: .macOS,
             product: .app,
             bundleId: "dev.tuist.Host",
+            deploymentTargets: .macOS("14.0"),
             // ENGINE_LIB_PATH is resolved at build time; the resulting absolute
             // path is embedded in the app bundle via Info.plist.
             infoPlist: .extendingDefault(with: [
