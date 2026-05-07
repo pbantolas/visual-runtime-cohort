@@ -1,5 +1,6 @@
 # build
 build/
+.cache/
 
 # hot reload scratch copy
 **/*_active.dylib

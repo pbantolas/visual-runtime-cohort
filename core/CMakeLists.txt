@@ -1,4 +1,4 @@
-add_library(engine SHARED src/engine.cpp)
+add_library(engine SHARED src/engine.cpp src/renderer.cpp)
 target_include_directories(engine PUBLIC
     include
     ${CMAKE_SOURCE_DIR}/Vendor/metal-cpp

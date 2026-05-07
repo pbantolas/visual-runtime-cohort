@@ -8,6 +8,11 @@ build:
     cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
     cmake --build {{build_dir}}
 
+# generate compile_commands.json for clangd / IDE tooling
+compile-commands:
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    ln -sf {{build_dir}}/compile_commands.json compile_commands.json
+
 # run the cli host (terminal 1)
 run: build
     ./{{build_dir}}/host/cli/cli
