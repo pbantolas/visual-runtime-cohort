@@ -2,8 +2,9 @@
 #include "engine/api.h"
 
 struct EngineAPI {
-    void (*init)(EngineState*)          = nullptr;
-    void (*update)(EngineState*, float) = nullptr;
+    void (*init)(EngineState*, SurfaceDescriptor*) = nullptr;
+    void (*update)(EngineState*, float)            = nullptr;
+    void (*shutdown)(EngineState*)                 = nullptr;
 
     // Accepts any callable (const char*) -> void* so hosts are not coupled
     // to a specific loading mechanism (dlopen, mock, test stub, etc.)
@@ -11,6 +12,7 @@ struct EngineAPI {
     void bind(Lookup lookup) {
         init   = reinterpret_cast<decltype(init)>(lookup("engine_init"));
         update = reinterpret_cast<decltype(update)>(lookup("engine_update"));
+        shutdown = reinterpret_cast<decltype(shutdown)>(lookup("engine_shutdown"));
     }
 
     explicit operator bool() const { return init && update; }

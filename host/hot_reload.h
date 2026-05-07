@@ -20,8 +20,7 @@ struct HotLib {
     static HotLib open(const char* source_path) {
         HotLib lib;
         lib.source = source_path;
-        lib.active = lib.source.parent_path() /
-                     (lib.source.stem().string() + "_active" + lib.source.extension().string());
+        lib.active = lib.source;
         lib.load();
         return lib;
     }
@@ -53,12 +52,6 @@ private:
     fs::path active;
 
     bool load() {
-        std::error_code ec;
-        fs::copy_file(source, active, fs::copy_options::overwrite_existing, ec);
-        if (ec) {
-            std::fprintf(stderr, "[hot_reload] copy failed: %s\n", ec.message().c_str());
-            return false;
-        }
         handle = dlopen(active.c_str(), RTLD_NOW | RTLD_LOCAL);
         if (!handle) {
             std::fprintf(stderr, "[hot_reload] dlopen: %s\n", dlerror());

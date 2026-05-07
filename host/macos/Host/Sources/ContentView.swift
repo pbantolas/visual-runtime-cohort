@@ -1,17 +1,14 @@
 import SwiftUI
 
 public struct ContentView: View {
-    public init() {}
+    let manager: EngineManager
+
+    public init(manager: EngineManager) {
+        self.manager = manager
+    }
 
     public var body: some View {
-        Text("Hello, World!")
-            .padding()
-    }
-}
-
-
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
+        MetalView(manager: manager)
+            .frame(minWidth: 800, minHeight: 600)
     }
 }

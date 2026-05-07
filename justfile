@@ -5,6 +5,11 @@ build:
     cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
     cmake --build {{build_dir}}
 
+# build only the engine dylib (configures if needed)
+dylib:
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
+    cmake --build {{build_dir}} --target engine
+
 # run the cli host (terminal 1)
 run: build
     ./{{build_dir}}/host/cli/cli

@@ -1,5 +1,4 @@
-#include "hot_reload.h"
-#include "engine_api.h"
+#include "engine_runtime.h"
 
 #include <chrono>
 #include <csignal>
@@ -13,36 +12,24 @@ int main() {
     std::signal(SIGINT, on_signal);
     std::setvbuf(stdout, nullptr, _IONBF, 0);
 
-    HotLib lib = HotLib::open(ENGINE_LIB_PATH);
-    if (!lib) return 1;
-
-    EngineAPI api;
-    api.bind([&](const char* name) { return lib.sym(name); });
-    if (!api) return 1;
-
-    EngineState state{};
-    api.init(&state);
+    EngineRuntime engine = EngineRuntime::open(ENGINE_LIB_PATH);
+    if (!engine) return 1;
 
     using clock = std::chrono::steady_clock;
     auto last = clock::now();
 
     while (running) {
-        if (lib.changed()) {
-            std::printf("[host] reloading...\n");
-            if (lib.reload()) {
-                api.bind([&](const char* name) { return lib.sym(name); });
-                std::printf("[host] reload ok (frame %llu)\n", state.frame_count);
-            }
-        }
+        if (engine.reload_if_changed())
+            std::printf("[host] reloaded (frame %llu)\n", engine.frame_count());
 
         auto now = clock::now();
         float dt = std::chrono::duration<float>(now - last).count();
         last = now;
 
-        api.update(&state, dt);
+        engine.tick(dt);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
-    std::printf("\n[host] exiting after %llu frames\n", state.frame_count);
+    std::printf("\n[host] exiting after %llu frames\n", engine.frame_count());
 }
