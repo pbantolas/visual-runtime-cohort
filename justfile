@@ -1,14 +1,12 @@
 build_dir := "build"
+macos_dir := "host/macos"
+macos_build_dir := "build/macos"
+macos_app := "build/macos/Build/Products/Debug/Host.app"
 
 # configure + build everything
 build:
     cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
     cmake --build {{build_dir}}
-
-# build only the engine dylib (configures if needed)
-dylib:
-    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
-    cmake --build {{build_dir}} --target engine
 
 # run the cli host (terminal 1)
 run: build
@@ -17,10 +15,6 @@ run: build
 # rebuild only the engine dylib — triggers hot reload in a running host (terminal 2)
 reload:
     cmake --build {{build_dir}} --target engine
-
-macos_dir := "host/macos"
-macos_build_dir := "build/macos"
-macos_app := "build/macos/Build/Products/Debug/Host.app"
 
 # build the macOS host app via xcodebuild
 macos-build:
@@ -41,6 +35,6 @@ macos-run: macos-build
 macos-open:
     open {{macos_dir}}/Host.xcworkspace
 
-# wipe the build directory
+# wipe all build artifacts
 clean:
-    rm -rf {{build_dir}}
+    rm -rf {{build_dir}} {{macos_build_dir}}
