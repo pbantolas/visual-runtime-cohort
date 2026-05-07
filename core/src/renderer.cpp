@@ -3,8 +3,29 @@
 #define MTL_PRIVATE_IMPLEMENTATION
 #include "renderer.h"
 
+#include <cstddef>
 #include <cmath>
 #include <cstdio>
+
+namespace {
+
+struct Vertex {
+    float position[2];
+    float color[3];
+};
+
+void print_error(const char* context, NS::Error* error) {
+    if (!error) {
+        std::fprintf(stderr, "[renderer] %s\n", context);
+        return;
+    }
+
+    NS::String* message = error->localizedDescription();
+    std::fprintf(stderr, "[renderer] %s: %s\n", context,
+                 message ? message->utf8String() : "unknown error");
+}
+
+} // namespace
 
 bool Renderer::init(SurfaceDescriptor* surface) {
     if (!surface || !surface->metal_layer) return false;
@@ -32,11 +53,17 @@ bool Renderer::init(SurfaceDescriptor* surface) {
     layer_->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
     layer_->setFramebufferOnly(true);
     layer_->setDrawableSize(CGSizeMake(surface->width, surface->height));
+
+    if (!build_pipeline() || !build_geometry()) {
+        shutdown();
+        return false;
+    }
+
     return true;
 }
 
 void Renderer::render_frame(float t) {
-    if (!layer_ || !queue_) return;
+    if (!layer_ || !queue_ || !pipeline_ || !vertex_buffer_) return;
 
     NS::AutoreleasePool* pool = NS::AutoreleasePool::alloc()->init();
 
@@ -60,6 +87,9 @@ void Renderer::render_frame(float t) {
 
     auto* cmd = queue_->commandBuffer();
     auto* enc = cmd->renderCommandEncoder(pass);
+    enc->setRenderPipelineState(pipeline_);
+    enc->setVertexBuffer(vertex_buffer_, 0, 0);
+    enc->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::UInteger(0), vertex_count_);
     enc->endEncoding();
     cmd->presentDrawable(drawable);
     cmd->commit();
@@ -67,8 +97,85 @@ void Renderer::render_frame(float t) {
     pool->release();
 }
 
+bool Renderer::build_pipeline() {
+    NS::Error* error = nullptr;
+    NS::String* shader_path = NS::String::string(ENGINE_SHADER_LIB_PATH, NS::UTF8StringEncoding);
+    library_ = device_->newLibrary(shader_path, &error);
+    if (!library_) {
+        print_error("failed to load Metal library " ENGINE_SHADER_LIB_PATH, error);
+        return false;
+    }
+
+    MTL::Function* vertex_fn = library_->newFunction(MTLSTR("vertex_main"));
+    MTL::Function* fragment_fn = library_->newFunction(MTLSTR("fragment_main"));
+    if (!vertex_fn || !fragment_fn) {
+        std::fprintf(stderr, "[renderer] failed to find vertex_main/fragment_main in Metal library\n");
+        if (vertex_fn) vertex_fn->release();
+        if (fragment_fn) fragment_fn->release();
+        return false;
+    }
+
+    MTL::RenderPipelineDescriptor* desc = MTL::RenderPipelineDescriptor::alloc()->init();
+    desc->setVertexFunction(vertex_fn);
+    desc->setFragmentFunction(fragment_fn);
+    desc->colorAttachments()->object(0)->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
+
+    MTL::VertexDescriptor* vertex_desc = MTL::VertexDescriptor::alloc()->init();
+    auto* position_attr = vertex_desc->attributes()->object(0);
+    position_attr->setFormat(MTL::VertexFormatFloat2);
+    position_attr->setOffset(offsetof(Vertex, position));
+    position_attr->setBufferIndex(0);
+
+    auto* color_attr = vertex_desc->attributes()->object(1);
+    color_attr->setFormat(MTL::VertexFormatFloat3);
+    color_attr->setOffset(offsetof(Vertex, color));
+    color_attr->setBufferIndex(0);
+
+    auto* vertex_layout = vertex_desc->layouts()->object(0);
+    vertex_layout->setStride(sizeof(Vertex));
+    vertex_layout->setStepFunction(MTL::VertexStepFunctionPerVertex);
+    vertex_layout->setStepRate(1);
+
+    desc->setVertexDescriptor(vertex_desc);
+
+    pipeline_ = device_->newRenderPipelineState(desc, &error);
+
+    vertex_desc->release();
+    desc->release();
+    vertex_fn->release();
+    fragment_fn->release();
+
+    if (!pipeline_) {
+        print_error("failed to create render pipeline", error);
+        return false;
+    }
+
+    return true;
+}
+
+bool Renderer::build_geometry() {
+    static constexpr Vertex vertices[] = {
+        {{ 0.0f,  0.65f}, {0.0f, 0.0f, 0.0f}},
+        {{-0.7f, -0.55f}, {0.0f, 0.0f, 0.0f}},
+        {{ 0.7f, -0.55f}, {0.0f, 0.0f, 0.0f}},
+    };
+
+    vertex_count_ = sizeof(vertices) / sizeof(vertices[0]);
+    vertex_buffer_ = device_->newBuffer(vertices, sizeof(vertices), MTL::ResourceStorageModeShared);
+    if (!vertex_buffer_) {
+        std::fprintf(stderr, "[renderer] failed to create vertex buffer\n");
+        return false;
+    }
+
+    return true;
+}
+
 void Renderer::shutdown() {
-    if (queue_)  { queue_->release();  queue_  = nullptr; }
-    if (device_) { device_->release(); device_ = nullptr; }
-    if (layer_)  { layer_->release();  layer_  = nullptr; }
+    if (vertex_buffer_) { vertex_buffer_->release(); vertex_buffer_ = nullptr; }
+    if (pipeline_)      { pipeline_->release();      pipeline_      = nullptr; }
+    if (library_)       { library_->release();       library_       = nullptr; }
+    if (queue_)         { queue_->release();         queue_         = nullptr; }
+    if (device_)        { device_->release();        device_        = nullptr; }
+    if (layer_)         { layer_->release();         layer_         = nullptr; }
+    vertex_count_ = 0;
 }
