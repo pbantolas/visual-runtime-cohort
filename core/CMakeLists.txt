@@ -28,6 +28,7 @@ add_library(engine SHARED src/engine.cpp src/renderer.cpp)
 add_dependencies(engine engine_shaders)
 target_include_directories(engine PUBLIC
     include
+    ${CMAKE_SOURCE_DIR}/Vendor/glm
     ${CMAKE_SOURCE_DIR}/Vendor/metal-cpp
 )
 target_compile_definitions(engine PRIVATE

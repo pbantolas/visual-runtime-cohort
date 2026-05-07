@@ -11,9 +11,14 @@ struct VertexOut {
     float3 color;
 };
 
-vertex VertexOut vertex_main(VertexIn in [[stage_in]]) {
+struct FrameUniforms {
+    float4x4 matrix;
+};
+
+vertex VertexOut vertex_main(VertexIn in [[stage_in]],
+                             constant FrameUniforms& frame_uniforms [[buffer(1)]]) {
     VertexOut out;
-    out.position = float4(in.position, 0.0, 1.0);
+    out.position = frame_uniforms.matrix * float4(in.position, 0.0, 1.0);
     out.color = in.color;
     return out;
 }

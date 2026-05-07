@@ -15,6 +15,8 @@ struct Renderer {
 private:
     bool build_pipeline();
     bool build_geometry();
+    bool build_uniforms();
+    void update_frame_uniforms();
 
     CA::MetalLayer*            layer_          = nullptr;
     MTL::Device*               device_         = nullptr;
@@ -22,6 +24,7 @@ private:
     MTL::Library*              library_        = nullptr;
     MTL::RenderPipelineState*  pipeline_       = nullptr;
     MTL::Buffer*               vertex_buffer_  = nullptr;
+    MTL::Buffer*               frame_uniform_buffer_ = nullptr;
     NS::UInteger               vertex_count_   = 0;
     uint32_t                   render_width_   = 0;
     uint32_t                   render_height_  = 0;

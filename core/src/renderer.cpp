@@ -3,6 +3,7 @@
 #define MTL_PRIVATE_IMPLEMENTATION
 #include "renderer.h"
 
+#include <glm/mat4x4.hpp>
 #include <cstddef>
 #include <cstdio>
 
@@ -11,6 +12,10 @@ namespace {
 struct Vertex {
   float position[2];
   float color[3];
+};
+
+struct FrameUniforms {
+  glm::mat4 matrix{1.0f};
 };
 
 void print_error(const char *context, NS::Error *error) {
@@ -52,6 +57,12 @@ bool Renderer::init(SurfaceDescriptor *surface) {
   layer_->setDevice(device_);
   layer_->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
   layer_->setFramebufferOnly(true);
+
+  if (!build_uniforms()) {
+    shutdown();
+    return false;
+  }
+
   resize(surface->width, surface->height);
 
   if (!build_pipeline() || !build_geometry()) {
@@ -65,10 +76,12 @@ bool Renderer::init(SurfaceDescriptor *surface) {
 void Renderer::resize(uint32_t width, uint32_t height) {
   render_width_ = width;
   render_height_ = height;
+  update_frame_uniforms();
 }
 
 void Renderer::render_frame(float t) {
-  if (!layer_ || !queue_ || !pipeline_ || !vertex_buffer_)
+  if (!layer_ || !queue_ || !pipeline_ || !vertex_buffer_ ||
+      !frame_uniform_buffer_)
     return;
 
   (void)t;
@@ -101,6 +114,7 @@ void Renderer::render_frame(float t) {
   });
   enc->setRenderPipelineState(pipeline_);
   enc->setVertexBuffer(vertex_buffer_, 0, 0);
+  enc->setVertexBuffer(frame_uniform_buffer_, 0, 1);
   enc->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::UInteger(0),
                       vertex_count_);
   enc->endEncoding();
@@ -190,7 +204,47 @@ bool Renderer::build_geometry() {
   return true;
 }
 
+bool Renderer::build_uniforms() {
+  frame_uniform_buffer_ =
+      device_->newBuffer(sizeof(FrameUniforms),
+                         MTL::ResourceStorageModeShared);
+  if (!frame_uniform_buffer_) {
+    std::fprintf(stderr, "[renderer] failed to create frame uniform buffer\n");
+    return false;
+  }
+
+  update_frame_uniforms();
+  return true;
+}
+
+void Renderer::update_frame_uniforms() {
+  if (!frame_uniform_buffer_) {
+    return;
+  }
+
+  FrameUniforms uniforms{};
+
+  if (render_width_ > 0 && render_height_ > 0) {
+    const float aspect =
+        static_cast<float>(render_width_) / static_cast<float>(render_height_);
+
+    if (aspect >= 1.0f) {
+      uniforms.matrix[0][0] = 1.0f / aspect;
+    } else {
+      uniforms.matrix[1][1] = aspect;
+    }
+  }
+
+  auto *contents =
+      static_cast<FrameUniforms *>(frame_uniform_buffer_->contents());
+  *contents = uniforms;
+}
+
 void Renderer::shutdown() {
+  if (frame_uniform_buffer_) {
+    frame_uniform_buffer_->release();
+    frame_uniform_buffer_ = nullptr;
+  }
   if (vertex_buffer_) {
     vertex_buffer_->release();
     vertex_buffer_ = nullptr;
