@@ -24,11 +24,14 @@ macos_app := "build/macos/Build/Products/Debug/Host.app"
 
 # build the macOS host app via xcodebuild
 macos-build:
-    xcodebuild -workspace {{macos_dir}}/Host.xcworkspace \
-               -scheme Host \
-               -configuration Debug \
-               -derivedDataPath {{macos_build_dir}} \
-               build
+    #!/usr/bin/env bash
+    set -euo pipefail
+    args=(-workspace {{macos_dir}}/Host.xcworkspace -scheme Host -configuration Debug -derivedDataPath {{macos_build_dir}} build)
+    if command -v xcbeautify &>/dev/null; then
+        xcodebuild "${args[@]}" | xcbeautify
+    else
+        xcodebuild "${args[@]}"
+    fi
 
 # build and launch the macOS host app
 macos-run: macos-build
