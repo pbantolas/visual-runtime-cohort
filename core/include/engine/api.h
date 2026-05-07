@@ -16,6 +16,7 @@ struct SurfaceDescriptor {
 
 extern "C" {
     void engine_init(EngineState* state, SurfaceDescriptor* surface);
+    void engine_resize(EngineState* state, uint32_t width, uint32_t height);
     void engine_update(EngineState* state, float dt);
     void engine_shutdown(EngineState* state);
 }

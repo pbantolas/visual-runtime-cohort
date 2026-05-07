@@ -17,6 +17,10 @@ void engine_init(EngineState* state, SurfaceDescriptor* surface) {
     std::fflush(stdout);
 }
 
+void engine_resize(EngineState*, uint32_t width, uint32_t height) {
+    g_renderer.resize(width, height);
+}
+
 void engine_update(EngineState* state, float dt) {
     state->frame_count++;
     state->elapsed_time += dt;

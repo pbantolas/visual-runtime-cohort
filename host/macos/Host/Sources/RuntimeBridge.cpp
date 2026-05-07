@@ -34,6 +34,12 @@ void runtime_attach_surface(RuntimeBridge* bridge, const RuntimeSurfaceDescripto
     bridge->runtime.attach_surface(runtime_surface);
 }
 
+void runtime_resize(RuntimeBridge* bridge, uint32_t width, uint32_t height) {
+    if (!bridge) return;
+
+    bridge->runtime.resize(width, height);
+}
+
 void runtime_tick(RuntimeBridge* bridge, float dt) {
     if (!bridge) return;
 

@@ -20,6 +20,8 @@ final class MetalNSView: NSView {
 
     override var wantsUpdateLayer: Bool { true }
 
+    var drawableSizeDidChange: ((CGSize) -> Void)?
+
     var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
 
     override func setFrameSize(_ newSize: NSSize) {
@@ -32,9 +34,12 @@ final class MetalNSView: NSView {
         updateDrawableSize(frame.size)
     }
 
-    private func updateDrawableSize(_ size: NSSize) {
+    func updateDrawableSize(_ size: NSSize) {
         let scale = window?.backingScaleFactor ?? 1.0
-        metalLayer.drawableSize = CGSize(width: size.width * scale, height: size.height * scale)
+        metalLayer.contentsScale = scale
+        let drawableSize = CGSize(width: size.width * scale, height: size.height * scale)
+        metalLayer.drawableSize = drawableSize
+        drawableSizeDidChange?(drawableSize)
     }
 }
 
@@ -63,6 +68,10 @@ struct MetalView: NSViewRepresentable {
         init(manager: RuntimeManager) { self.manager = manager }
 
         func start(view: MetalNSView) {
+            view.updateDrawableSize(view.frame.size)
+            view.drawableSizeDidChange = { [weak manager] size in
+                manager?.resize(width: UInt32(size.width), height: UInt32(size.height))
+            }
             manager.attach(view.metalLayer)
 
             let displayLink = view.displayLink(target: self, selector: #selector(displayLinkFired(_:)))

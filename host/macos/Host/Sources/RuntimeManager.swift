@@ -15,14 +15,17 @@ public final class RuntimeManager {
     }
 
     func attach(_ layer: CAMetalLayer) {
-        let size = layer.bounds.size
-        let scale = layer.contentsScale
+        let size = layer.drawableSize
         var surface = RuntimeSurfaceDescriptor(
             metal_layer: Unmanaged.passUnretained(layer).toOpaque(),
-            width: UInt32(size.width * scale),
-            height: UInt32(size.height * scale)
+            width: UInt32(size.width),
+            height: UInt32(size.height)
         )
         runtime_attach_surface(bridge, &surface)
+    }
+
+    func resize(width: UInt32, height: UInt32) {
+        runtime_resize(bridge, width, height)
     }
 
     func tick(_ dt: Float) {

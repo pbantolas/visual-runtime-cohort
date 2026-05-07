@@ -8,6 +8,7 @@
 
 struct Renderer {
     bool init(SurfaceDescriptor* surface);
+    void resize(uint32_t width, uint32_t height);
     void render_frame(float t);
     void shutdown();
 
@@ -22,4 +23,6 @@ private:
     MTL::RenderPipelineState*  pipeline_       = nullptr;
     MTL::Buffer*               vertex_buffer_  = nullptr;
     NS::UInteger               vertex_count_   = 0;
+    uint32_t                   render_width_   = 0;
+    uint32_t                   render_height_  = 0;
 };

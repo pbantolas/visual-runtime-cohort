@@ -32,6 +32,12 @@ struct Runtime {
         init();
     }
 
+    void resize(uint32_t width, uint32_t height) {
+        surface_.width = width;
+        surface_.height = height;
+        if (initialized_ && api_.resize) api_.resize(&state_, width, height);
+    }
+
     bool reload_if_changed() {
         if (!lib_.changed()) return false;
         return reload();

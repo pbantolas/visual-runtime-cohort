@@ -3,6 +3,7 @@
 
 struct EngineAPI {
     void (*init)(EngineState*, SurfaceDescriptor*) = nullptr;
+    void (*resize)(EngineState*, uint32_t, uint32_t) = nullptr;
     void (*update)(EngineState*, float)            = nullptr;
     void (*shutdown)(EngineState*)                 = nullptr;
 
@@ -11,6 +12,7 @@ struct EngineAPI {
     template<typename Lookup>
     void bind(Lookup lookup) {
         init   = reinterpret_cast<decltype(init)>(lookup("engine_init"));
+        resize = reinterpret_cast<decltype(resize)>(lookup("engine_resize"));
         update = reinterpret_cast<decltype(update)>(lookup("engine_update"));
         shutdown = reinterpret_cast<decltype(shutdown)>(lookup("engine_shutdown"));
     }

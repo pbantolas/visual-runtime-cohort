@@ -52,7 +52,7 @@ bool Renderer::init(SurfaceDescriptor* surface) {
     layer_->setDevice(device_);
     layer_->setPixelFormat(MTL::PixelFormatBGRA8Unorm);
     layer_->setFramebufferOnly(true);
-    layer_->setDrawableSize(CGSizeMake(surface->width, surface->height));
+    resize(surface->width, surface->height);
 
     if (!build_pipeline() || !build_geometry()) {
         shutdown();
@@ -60,6 +60,11 @@ bool Renderer::init(SurfaceDescriptor* surface) {
     }
 
     return true;
+}
+
+void Renderer::resize(uint32_t width, uint32_t height) {
+    render_width_ = width;
+    render_height_ = height;
 }
 
 void Renderer::render_frame(float t) {
@@ -87,6 +92,14 @@ void Renderer::render_frame(float t) {
 
     auto* cmd = queue_->commandBuffer();
     auto* enc = cmd->renderCommandEncoder(pass);
+    enc->setViewport(MTL::Viewport{
+        0.0,
+        0.0,
+        static_cast<double>(render_width_),
+        static_cast<double>(render_height_),
+        0.0,
+        1.0,
+    });
     enc->setRenderPipelineState(pipeline_);
     enc->setVertexBuffer(vertex_buffer_, 0, 0);
     enc->drawPrimitives(MTL::PrimitiveTypeTriangle, NS::UInteger(0), vertex_count_);
@@ -178,4 +191,6 @@ void Renderer::shutdown() {
     if (device_)        { device_->release();        device_        = nullptr; }
     if (layer_)         { layer_->release();         layer_         = nullptr; }
     vertex_count_ = 0;
+    render_width_ = 0;
+    render_height_ = 0;
 }
