@@ -1,19 +1,26 @@
-# engine
+# Renderer In Practice
 
-A Metal-backed graphics engine built as a hot-reloadable shared library, with a thin host that drives it.
+A hands-on course in building a renderer for a real product — no tutorials, just practice.
 
 ## Overview
 
-The project is split into two layers: an **engine** (compiled as `libengine.dylib`) that owns all rendering logic, and a **host** that loads it at runtime and calls into it through a versioned C API. Because the engine is a separate dylib, you can recompile it while a host is running and the host will pick up the new code automatically — no restart required. The current renderer draws a triangle via Metal and is intentionally minimal: the point is the architecture, not the scene.
+This is the codebase for Renderer In Practice: a product-driven case study where you build a renderer grounded in a specific brief rather than following prescribed steps.
+
+The project is split into two layers: an **engine** (compiled as `libengine.dylib`) that owns all rendering logic, and a **host** that loads it at runtime through a versioned C API. That boundary is where your work begins. You work on the engine side; the host stays stable.
+
+Because the engine exposes a plain C API, any host that can load a shared library can drive it: a native macOS app, a headless worker, a Rust application, or a web frontend talking to a compiled engine binary. The current hosts are a macOS Metal window and a CLI loop, but the architecture doesn't prescribe what the host has to be.
+
+You can also recompile and reload the engine while the host is running with no restart required.
 
 ## Prerequisites
 
-- macOS 14 or later
-- Xcode 15 or later (provides `xcrun`, `metal`, `metallib`)
-- CMake 3.25 or later
-- Ninja (`brew install ninja`)
-- just (`brew install just`)
-- For the macOS GUI host only: Tuist (`brew install tuist`) and optionally xcbeautify (`brew install xcbeautify`)
+This project requires Xcode 15 or later. Install it from the Mac App Store if you haven't already. Everything else is available via Homebrew:
+
+```sh
+brew install cmake ninja just
+```
+
+For the macOS GUI host, you also need `tuist` (`brew install tuist`). `xcbeautify` is optional but makes Xcode build output readable (`brew install xcbeautify`).
 
 ## Getting Started
 
@@ -23,7 +30,7 @@ Configure and build everything:
 just build
 ```
 
-That configures CMake with Ninja, compiles the engine dylib, compiles and links the Metal shader library, and builds the CLI host binary. All artifacts land in `build/`.
+All artifacts land in `build/`.
 
 To generate IDE tooling (clangd, etc.):
 
@@ -83,13 +90,17 @@ engine/
 
 ## Key Concepts
 
-**Harness vs. engine.** The host is the harness: it owns the window, the run loop, and the dylib lifecycle. The engine owns all rendering. They share nothing except the structs in `core/include/engine/api.h`. This boundary is the central design constraint of the course.
+**Harness vs. engine.**
+The host is the harness: it owns the window, the run loop, and the dylib lifecycle. The engine owns all rendering. They share nothing except the structs in `core/include/engine/api.h`. This boundary is the central design constraint of the course.
 
-**Versioned C ABI.** `EngineAPI` is a struct of function pointers tagged with `abi_version` and `struct_size`. The host validates both before calling anything. This makes it safe to reload a dylib compiled against a different build without crashing — mismatches are caught and reported.
+**Versioned C ABI.**
+`EngineAPI` is a struct of function pointers tagged with `abi_version` and `struct_size`. The host validates both before calling anything. Mismatches are caught and reported rather than crashing, which makes it safe to reload a dylib compiled against a different build.
 
-**Hot reload mechanism.** `DynamicLibrary::changed()` compares the dylib's mtime on every tick. When a change is detected, `Runtime::reload()` calls `shutdown()` on the old API, unloads the dylib, reloads it, re-binds the function pointers, and calls `init()` again. The host process and its window never stop.
+**Hot reload mechanism.**
+`DynamicLibrary::changed()` compares the dylib's mtime on every tick. When a change is detected, `Runtime::reload()` calls `shutdown()` on the old API, unloads the dylib, reloads it, re-binds the function pointers, and calls `init()` again. The host process and its window never stop.
 
-**Metal shader pipeline.** Shaders are compiled by CMake via `xcrun metal` and `xcrun metallib` into a `.metallib` bundle. The path is baked in at compile time as `ENGINE_SHADER_LIB_PATH`. Changing a shader requires a `just reload` (which triggers a full engine rebuild including shader recompilation).
+**Metal shader pipeline.**
+Shaders are compiled by CMake via `xcrun metal` and `xcrun metallib` into a `.metallib` bundle. The path is baked in at compile time as `ENGINE_SHADER_LIB_PATH`. Changing a shader requires `just engine`, which triggers a full engine rebuild including shader recompilation.
 
 ## Configuration
 
