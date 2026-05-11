@@ -6,7 +6,7 @@ macos_app := "build/macos/Build/Products/Debug/Host.app"
 macos_project := "host/macos/Host.xcodeproj"
 macos_workspace := "host/macos/Host.xcworkspace"
 
-# configure native build files
+[private]
 configure backend=backend:
     cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENGINE_BACKEND={{backend}}
 
@@ -23,12 +23,9 @@ compile-commands backend=backend:
 run backend=backend: (build backend)
     ./{{build_dir}}/host/cli/cli
 
-# build the engine dylib
+# build the engine dylib — run in a second terminal to trigger hot reload in a running host
 engine backend=backend: (configure backend)
     cmake --build {{build_dir}} --target engine
-
-# rebuild only the engine dylib — triggers hot reload in a running host (terminal 2)
-reload backend=backend: (engine backend)
 
 # generate the macOS Xcode project from Tuist
 macos-generate:
