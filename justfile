@@ -1,4 +1,5 @@
 build_dir := "build"
+backend := "Metal"
 macos_dir := "host/macos"
 macos_build_dir := "build/macos"
 macos_app := "build/macos/Build/Products/Debug/Host.app"
@@ -6,28 +7,28 @@ macos_project := "host/macos/Host.xcodeproj"
 macos_workspace := "host/macos/Host.xcworkspace"
 
 # configure native build files
-configure:
-    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug
+configure backend=backend:
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENGINE_BACKEND={{backend}}
 
 # configure + build everything
-build: configure
+build backend=backend: (configure backend)
     cmake --build {{build_dir}}
 
 # generate compile_commands.json for clangd / IDE tooling
-compile-commands:
-    cmake -B {{build_dir}} -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+compile-commands backend=backend:
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENGINE_BACKEND={{backend}}
     ln -sf {{build_dir}}/compile_commands.json compile_commands.json
 
 # run the cli host (terminal 1)
-run: build
+run backend=backend: (build backend)
     ./{{build_dir}}/host/cli/cli
 
 # build the engine dylib
-engine: configure
+engine backend=backend: (configure backend)
     cmake --build {{build_dir}} --target engine
 
 # rebuild only the engine dylib — triggers hot reload in a running host (terminal 2)
-reload: engine
+reload backend=backend: (engine backend)
 
 # generate the macOS Xcode project from Tuist
 macos-generate:
