@@ -84,7 +84,7 @@ Opens a native Metal window. Hot reload works the same way: run `just engine` in
 engine/
 ├── core/      # Engine shared library (libengine.dylib) — renderer, shaders, public API
 ├── host/      # Harness layer — dylib loader, runtime, CLI and macOS hosts
-├── Vendor/    # Third-party dependencies (glm, metal-cpp)
+├── third_party/    # Third-party dependencies (glm, metal-cpp)
 └── justfile   # Task runner — prefer this over invoking cmake directly
 ```
 

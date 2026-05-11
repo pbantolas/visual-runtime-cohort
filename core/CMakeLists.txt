@@ -5,7 +5,7 @@ add_library(engine SHARED src/engine.cpp src/renderer.cpp)
 
 target_include_directories(engine PUBLIC
     include
-    ${CMAKE_SOURCE_DIR}/Vendor/glm
+    ${CMAKE_SOURCE_DIR}/third_party/glm
 )
 
 set_target_properties(engine PROPERTIES
@@ -47,7 +47,7 @@ if(ENGINE_BACKEND STREQUAL "Metal")
     add_dependencies(engine engine_metal_shaders)
 
     target_include_directories(engine PUBLIC
-        ${CMAKE_SOURCE_DIR}/Vendor/metal-cpp
+        ${CMAKE_SOURCE_DIR}/third_party/metal-cpp
     )
 
     target_compile_definitions(engine PRIVATE
