@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1050" viewBox="0 0 1500 1050" role="img" aria-labelledby="title desc">
   <title id="title">macOS host to C++ renderer engine flow</title>
-  <desc id="desc">Diagram showing how the SwiftUI macOS host creates a CAMetalLayer, passes it through the HostRuntime C++ facade into the C++ runtime and dynamic engine API, then the renderer uses Metal to draw each frame.</desc>
+  <desc id="desc">Diagram showing how the SwiftUI macOS host creates a CAMetalLayer, passes it through the EngineHost C++ facade into the EngineModule and dynamic engine API, then the renderer uses Metal to draw each frame.</desc>
   <defs>
     <style>
       .bg { fill: #f7f5ef; }
@@ -70,19 +70,19 @@
   <path class="call-soft" d="M1265 251 H1235"/>
 
   <rect class="lane" x="45" y="350" width="1410" height="210" rx="16"/>
-  <text x="70" y="390" class="lane-title">2. Swift calls the C++ host runtime facade</text>
+  <text x="70" y="390" class="lane-title">2. Swift calls the C++ engine host facade</text>
   <text x="70" y="415" class="lane-subtitle">The only native surface data passed across is a pointer-sized layer handle plus pixel dimensions.</text>
 
   <rect class="box host" x="85" y="455" width="260" height="70"/>
-  <text class="text" x="110" y="483">RuntimeManager.attach</text>
+  <text class="text" x="110" y="483">EngineSession.attach</text>
   <text class="small" x="110" y="506">wraps CAMetalLayer pointer</text>
 
   <rect class="box bridge" x="415" y="455" width="270" height="70"/>
-  <text class="text" x="440" y="483">HostRuntime.cpp</text>
+  <text class="text" x="440" y="483">EngineHost.cpp</text>
   <text class="small" x="440" y="506">Swift/C++ facade</text>
 
   <rect class="box runtime" x="755" y="455" width="295" height="70"/>
-  <text class="text" x="780" y="483">Runtime::attach_surface</text>
+  <text class="text" x="780" y="483">EngineModule::attachSurface</text>
   <text class="small" x="780" y="506">stores SurfaceDescriptor</text>
 
   <rect class="note" x="1115" y="442" width="285" height="96"/>
@@ -97,8 +97,8 @@
   <text class="label" x="705" y="476">SurfaceDescriptor</text>
 
   <rect class="lane" x="45" y="595" width="1410" height="205" rx="16"/>
-  <text x="70" y="635" class="lane-title">3. Runtime binds the hot-loaded engine ABI</text>
-  <text x="70" y="660" class="lane-subtitle">host/runtime.h loads the dylib, resolves engine_get_api, then calls function pointers in EngineAPI.</text>
+  <text x="70" y="635" class="lane-title">3. EngineModule binds the hot-loaded engine ABI</text>
+  <text x="70" y="660" class="lane-subtitle">host/engine_module.h loads the dylib, resolves engine_get_api, then calls function pointers in EngineAPI.</text>
 
   <rect class="box runtime" x="85" y="700" width="250" height="64"/>
   <text class="text" x="110" y="727">DynamicLibrary</text>
@@ -131,10 +131,10 @@
   <text class="text" x="110" y="959">displayLinkFired</text>
 
   <rect class="box runtime" x="350" y="930" width="185" height="46"/>
-  <text class="text" x="375" y="959">HostRuntime::tick</text>
+  <text class="text" x="375" y="959">EngineHost::tick</text>
 
   <rect class="box runtime" x="585" y="930" width="200" height="46"/>
-  <text class="text" x="610" y="959">reload_if_changed</text>
+  <text class="text" x="610" y="959">reloadIfChanged</text>
 
   <rect class="box engine" x="835" y="930" width="220" height="46"/>
   <text class="text" x="860" y="959">engine_update_impl</text>

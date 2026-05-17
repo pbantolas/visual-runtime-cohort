@@ -46,9 +46,9 @@ final class MetalNSView: NSView {
 // MARK: - SwiftUI wrapper
 
 struct MetalView: NSViewRepresentable {
-    let manager: RuntimeManager
+    let engineSession: EngineSession
 
-    func makeCoordinator() -> Coordinator { Coordinator(manager: manager) }
+    func makeCoordinator() -> Coordinator { Coordinator(engineSession: engineSession) }
 
     func makeNSView(context: Context) -> MetalNSView {
         let view = MetalNSView()
@@ -61,18 +61,18 @@ struct MetalView: NSViewRepresentable {
     // MARK: Coordinator - owns the display link and drives engine ticks
 
     final class Coordinator: NSObject {
-        let manager: RuntimeManager
+        let engineSession: EngineSession
         private var displayLink: CADisplayLink?
         private var lastTime: Double = 0
 
-        init(manager: RuntimeManager) { self.manager = manager }
+        init(engineSession: EngineSession) { self.engineSession = engineSession }
 
         func start(view: MetalNSView) {
             view.updateDrawableSize(view.frame.size)
-            view.drawableSizeDidChange = { [weak manager] size in
-                manager?.resize(width: UInt32(size.width), height: UInt32(size.height))
+            view.drawableSizeDidChange = { [weak engineSession] size in
+                engineSession?.resize(width: UInt32(size.width), height: UInt32(size.height))
             }
-            manager.attach(view.metalLayer)
+            engineSession.attach(view.metalLayer)
 
             let displayLink = view.displayLink(target: self, selector: #selector(displayLinkFired(_:)))
             displayLink.add(to: .main, forMode: .common)
@@ -83,7 +83,7 @@ struct MetalView: NSViewRepresentable {
             let now = displayLink.timestamp
             let dt  = lastTime == 0 ? 0.0 : Float(now - lastTime)
             lastTime = now
-            manager.tick(dt)
+            engineSession.tick(dt)
         }
 
         deinit { displayLink?.invalidate() }

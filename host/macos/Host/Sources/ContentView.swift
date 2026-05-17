@@ -2,17 +2,17 @@ import AppKit
 import SwiftUI
 
 public struct ContentView: View {
-    let manager: RuntimeManager
+    let engineSession: EngineSession
 
-    public init(manager: RuntimeManager) {
-        self.manager = manager
+    public init(engineSession: EngineSession) {
+        self.engineSession = engineSession
     }
 
     public var body: some View {
         ZStack(alignment: .topLeading) {
-            MetalView(manager: manager)
+            MetalView(engineSession: engineSession)
 
-            WindowDragView(manager: manager)
+            WindowDragView(engineSession: engineSession)
 
             Text("q to close, r to reload")
                 .font(.body.monospaced().weight(.medium))
@@ -26,20 +26,20 @@ public struct ContentView: View {
 }
 
 private struct WindowDragView: NSViewRepresentable {
-    let manager: RuntimeManager
+    let engineSession: EngineSession
 
     func makeNSView(context: Context) -> NSView {
-        WindowDraggingNSView(manager: manager)
+        WindowDraggingNSView(engineSession: engineSession)
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 private final class WindowDraggingNSView: NSView {
-    private let manager: RuntimeManager
+    private let engineSession: EngineSession
 
-    init(manager: RuntimeManager) {
-        self.manager = manager
+    init(engineSession: EngineSession) {
+        self.engineSession = engineSession
         super.init(frame: .zero)
     }
 
@@ -64,7 +64,7 @@ private final class WindowDraggingNSView: NSView {
         case "q":
             NSApp.terminate(nil)
         case "r":
-            manager.reload()
+            engineSession.reload()
         default:
             super.keyDown(with: event)
         }

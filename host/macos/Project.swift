@@ -19,12 +19,12 @@ let project = Project(
                 .glob("Host/Sources/**/*.cpp"),
             ],
             resources: [.glob(pattern: "Host/Resources/**")],
-            headers: .headers(project: ["Host/Sources/HostRuntime.h"]),
+            headers: .headers(project: ["Host/Sources/EngineHost.h"]),
             settings: .settings(base: [
                 // Exposes the C++ host facade to Swift.
                 "SWIFT_OBJC_BRIDGING_HEADER": "$(SRCROOT)/Host/Sources/Host-Bridging-Header.h",
                 "SWIFT_OBJC_INTEROP_MODE": "objcxx",
-                // Expose host/ and core/include/ to the C++ shim.
+                // Expose host/ and core/include/ to the C++ facade.
                 "HEADER_SEARCH_PATHS": [
                     "$(SRCROOT)/../",
                     "$(SRCROOT)/../../core/include",

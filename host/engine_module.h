@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <utility>
 
-struct Runtime {
-    Runtime(const Runtime&) = delete;
-    Runtime& operator=(const Runtime&) = delete;
-    Runtime(Runtime&& other) noexcept
+struct EngineModule {
+    EngineModule(const EngineModule&) = delete;
+    EngineModule& operator=(const EngineModule&) = delete;
+    EngineModule(EngineModule&& other) noexcept
         : lib_(std::move(other.lib_)),
           api_(other.api_),
           api_bound_(other.api_bound_),
@@ -20,15 +20,15 @@ struct Runtime {
         other.initialized_ = false;
         other.api_bound_ = false;
     }
-    ~Runtime() {
+    ~EngineModule() {
         shutdown();
     }
 
-    static Runtime open(const char* lib_path) {
-        return Runtime(DynamicLibrary::open(lib_path));
+    static EngineModule open(const char* lib_path) {
+        return EngineModule(DynamicLibrary::open(lib_path));
     }
 
-    void attach_surface(SurfaceDescriptor surface) {
+    void attachSurface(SurfaceDescriptor surface) {
         surface_ = surface;
         has_surface_ = true;
         init();
@@ -40,7 +40,7 @@ struct Runtime {
         if (initialized_ && api_.resize) api_.resize(&state_, width, height);
     }
 
-    bool reload_if_changed() {
+    bool reloadIfChanged() {
         if (!lib_.changed()) return false;
         return reload();
     }
@@ -49,7 +49,7 @@ struct Runtime {
         shutdown();
         if (!lib_.reload()) return false;
 
-        bind_api();
+        bindApi();
         init();
         return true;
     }
@@ -64,7 +64,7 @@ struct Runtime {
         initialized_ = false;
     }
 
-    uint64_t frame_count() const {
+    uint64_t frameCount() const {
         return state_.frame_count;
     }
 
@@ -73,14 +73,14 @@ struct Runtime {
     }
 
 private:
-    explicit Runtime(DynamicLibrary lib) : lib_(std::move(lib)) {
+    explicit EngineModule(DynamicLibrary lib) : lib_(std::move(lib)) {
         if (lib_) {
-            bind_api();
+            bindApi();
             init();
         }
     }
 
-    void bind_api() {
+    void bindApi() {
         api_ = {};
         api_bound_ = false;
 
@@ -89,7 +89,7 @@ private:
 
         const EngineAPI* loaded_api = get_api();
         if (!loaded_api) {
-            std::fprintf(stderr, "[runtime] engine_get_api returned null\n");
+            std::fprintf(stderr, "[engine_module] engine_get_api returned null\n");
             return;
         }
         if (!engine_api_valid(*loaded_api)) return;

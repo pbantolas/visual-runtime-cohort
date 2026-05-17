@@ -83,7 +83,7 @@ Opens a native Metal window. Hot reload works the same way: run `just engine` in
 ```
 engine/
 ├── core/      # Engine shared library (libengine.dylib) — renderer, shaders, public API
-├── host/      # Harness layer — dylib loader, runtime, CLI and macOS hosts
+├── host/      # Harness layer — engine module loader, CLI and macOS hosts
 ├── third_party/    # Third-party dependencies (glm, metal-cpp)
 └── justfile   # Task runner — prefer this over invoking cmake directly
 ```
@@ -97,7 +97,7 @@ The host is the harness: it owns the window, the run loop, and the dylib lifecyc
 `EngineAPI` is a struct of function pointers tagged with `abi_version` and `struct_size`. The host validates both before calling anything. Mismatches are caught and reported rather than crashing, which makes it safe to reload a dylib compiled against a different build.
 
 **Hot reload mechanism.**
-`DynamicLibrary::changed()` compares the dylib's mtime on every tick. When a change is detected, `Runtime::reload()` calls `shutdown()` on the old API, unloads the dylib, reloads it, re-binds the function pointers, and calls `init()` again. The host process and its window never stop.
+`DynamicLibrary::changed()` compares the dylib's mtime on every tick. When a change is detected, `EngineModule::reload()` calls `shutdown()` on the old API, unloads the dylib, reloads it, re-binds the function pointers, and calls `init()` again. The host process and its window never stop.
 
 **Metal shader pipeline.**
 Shaders are compiled by CMake via `xcrun metal` and `xcrun metallib` into a `.metallib` bundle. The path is baked in at compile time as `ENGINE_SHADER_LIB_PATH`. Changing a shader requires `just engine`, which triggers a full engine rebuild including shader recompilation.

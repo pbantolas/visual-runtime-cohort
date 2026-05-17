@@ -2,17 +2,17 @@ import SwiftUI
 
 @main
 struct HostApp: App {
-    let manager: RuntimeManager = {
+    let engineSession: EngineSession = {
         let path = Bundle.main.infoDictionary?["EngineLibPath"] as? String ?? ""
-        guard let m = RuntimeManager(libPath: path) else {
+        guard let engineSession = EngineSession(libPath: path) else {
             fatalError("Failed to load engine from: \(path)")
         }
-        return m
+        return engineSession
     }()
 
     var body: some Scene {
         WindowGroup {
-            ContentView(manager: manager)
+            ContentView(engineSession: engineSession)
         }
     }
 }
