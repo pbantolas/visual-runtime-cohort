@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1050" viewBox="0 0 1500 1050" role="img" aria-labelledby="title desc">
   <title id="title">macOS host to C++ renderer engine flow</title>
-  <desc id="desc">Diagram showing how the SwiftUI macOS host creates a CAMetalLayer, passes it through the RuntimeBridge into the C++ runtime and dynamic engine API, then the renderer uses Metal to draw each frame.</desc>
+  <desc id="desc">Diagram showing how the SwiftUI macOS host creates a CAMetalLayer, passes it through the HostRuntime C++ facade into the C++ runtime and dynamic engine API, then the renderer uses Metal to draw each frame.</desc>
   <defs>
     <style>
       .bg { fill: #f7f5ef; }
@@ -38,7 +38,7 @@
   <rect class="bg" x="0" y="0" width="1500" height="1050"/>
 
   <text x="60" y="62" class="lane-title">macOS host to C++ renderer engine</text>
-  <text x="60" y="90" class="lane-subtitle">Concrete path in this repo: SwiftUI/AppKit host, C++ bridge/runtime, hot-loaded engine dylib, metal-cpp renderer</text>
+  <text x="60" y="90" class="lane-subtitle">Concrete path in this repo: SwiftUI/AppKit host, Swift/C++ facade, hot-loaded engine dylib, metal-cpp renderer</text>
 
   <rect class="lane" x="45" y="125" width="1410" height="190" rx="16"/>
   <text x="70" y="165" class="lane-title">1. macOS host creates the drawable surface</text>
@@ -70,16 +70,16 @@
   <path class="call-soft" d="M1265 251 H1235"/>
 
   <rect class="lane" x="45" y="350" width="1410" height="210" rx="16"/>
-  <text x="70" y="390" class="lane-title">2. Swift crosses into the host runtime</text>
-  <text x="70" y="415" class="lane-subtitle">The only native surface data passed across is a retained pointer-sized handle plus pixel dimensions.</text>
+  <text x="70" y="390" class="lane-title">2. Swift calls the C++ host runtime facade</text>
+  <text x="70" y="415" class="lane-subtitle">The only native surface data passed across is a pointer-sized layer handle plus pixel dimensions.</text>
 
   <rect class="box host" x="85" y="455" width="260" height="70"/>
   <text class="text" x="110" y="483">RuntimeManager.attach</text>
   <text class="small" x="110" y="506">wraps CAMetalLayer pointer</text>
 
   <rect class="box bridge" x="415" y="455" width="270" height="70"/>
-  <text class="text" x="440" y="483">RuntimeBridge.cpp</text>
-  <text class="small" x="440" y="506">C ABI for Swift calls</text>
+  <text class="text" x="440" y="483">HostRuntime.cpp</text>
+  <text class="small" x="440" y="506">Swift/C++ facade</text>
 
   <rect class="box runtime" x="755" y="455" width="295" height="70"/>
   <text class="text" x="780" y="483">Runtime::attach_surface</text>
@@ -93,7 +93,7 @@
   <path class="call" d="M345 490 H410"/>
   <path class="call" d="M685 490 H750"/>
   <path class="call-soft" d="M1050 490 H1110"/>
-  <text class="label" x="368" y="476">runtime_attach_surface</text>
+  <text class="label" x="368" y="476">attachSurface</text>
   <text class="label" x="705" y="476">SurfaceDescriptor</text>
 
   <rect class="lane" x="45" y="595" width="1410" height="205" rx="16"/>
@@ -131,7 +131,7 @@
   <text class="text" x="110" y="959">displayLinkFired</text>
 
   <rect class="box runtime" x="350" y="930" width="185" height="46"/>
-  <text class="text" x="375" y="959">runtime_tick</text>
+  <text class="text" x="375" y="959">HostRuntime::tick</text>
 
   <rect class="box runtime" x="585" y="930" width="200" height="46"/>
   <text class="text" x="610" y="959">reload_if_changed</text>
@@ -167,7 +167,7 @@
     <text class="tiny" x="30" y="-9">Swift/AppKit host</text>
     <rect class="badge" x="190" y="-24" width="20" height="20" rx="4" fill="#7c5dcc"/>
     <text class="badge-text" x="196" y="-9">B</text>
-    <text class="tiny" x="220" y="-9">C++ bridge / runtime boundary</text>
+    <text class="tiny" x="220" y="-9">Swift/C++ facade</text>
     <rect class="badge" x="450" y="-24" width="20" height="20" rx="4" fill="#d57b2a"/>
     <text class="badge-text" x="456" y="-9">E</text>
     <text class="tiny" x="480" y="-9">Engine dylib and renderer</text>
