@@ -6,6 +6,9 @@ macos_app := "build/macos/Build/Products/Debug/Host.app"
 macos_project := "host/macos/Host.xcodeproj"
 macos_workspace := "host/macos/Host.xcworkspace"
 
+default:
+    @just --list
+
 [private]
 configure backend=backend:
     cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENGINE_BACKEND={{backend}}
@@ -27,8 +30,18 @@ run backend=backend: (build backend)
 engine backend=backend: (configure backend)
     cmake --build {{build_dir}} --target engine
 
+[private]
+ensure-macos-project:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ ! -d "{{macos_project}}" || ! -d "{{macos_workspace}}" ]]; then
+        echo "error: checked-in macOS project files are missing." >&2
+        echo "Install Tuist and run 'just macos-generate-project' to regenerate them." >&2
+        exit 1
+    fi
+
 # generate the macOS Xcode project from Tuist
-macos-generate:
+macos-generate-project:
     #!/usr/bin/env bash
     set -euo pipefail
     command -v tuist >/dev/null || {
@@ -39,7 +52,7 @@ macos-generate:
     tuist generate --no-open
 
 # build the macOS host app via xcodebuild
-macos-build: macos-generate
+macos-build: ensure-macos-project
     #!/usr/bin/env bash
     set -euo pipefail
     args=(-project {{macos_project}} -scheme Host -configuration Debug -derivedDataPath {{macos_build_dir}} build)
@@ -54,7 +67,7 @@ macos-run: engine macos-build
     open {{macos_app}}
 
 # open the macOS host workspace in Xcode
-macos-open: macos-generate
+macos-open: ensure-macos-project
     open {{macos_workspace}}
 
 # wipe all build artifacts

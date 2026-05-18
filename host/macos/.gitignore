@@ -54,13 +54,11 @@ DerivedData/
 ### Xcode Patch ###
 *.xcodeproj/*
 !*.xcodeproj/project.pbxproj
+!*.xcodeproj/project.xcworkspace/
+!*.xcodeproj/project.xcworkspace/contents.xcworkspacedata
 !*.xcodeproj/xcshareddata/
 !*.xcworkspace/contents.xcworkspacedata
 /*.gcno
-
-### Projects ###
-*.xcodeproj
-*.xcworkspace
 
 ### Tuist derived files ###
 graph.dot
