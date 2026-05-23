@@ -20,7 +20,7 @@ struct SurfaceDescriptor {
     uint32_t    height;
 };
 
-constexpr uint32_t ENGINE_API_VERSION = 1;
+constexpr uint32_t ENGINE_API_VERSION = 2;
 
 struct EngineAPI {
     uint32_t abi_version;

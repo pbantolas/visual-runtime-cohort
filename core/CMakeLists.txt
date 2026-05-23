@@ -1,5 +1,5 @@
 set(ENGINE_BACKEND "Metal" CACHE STRING "Renderer backend")
-set_property(CACHE ENGINE_BACKEND PROPERTY STRINGS Metal)
+set_property(CACHE ENGINE_BACKEND PROPERTY STRINGS Metal Vulkan)
 
 add_library(engine SHARED src/engine.cpp)
 
@@ -18,6 +18,8 @@ set_target_properties(engine PROPERTIES
 
 if(ENGINE_BACKEND STREQUAL "Metal")
     add_subdirectory(src/backend/metal)
+elseif(ENGINE_BACKEND STREQUAL "Vulkan")
+    add_subdirectory(src/backend/vulkan)
 else()
     message(FATAL_ERROR "Unsupported ENGINE_BACKEND: ${ENGINE_BACKEND}")
 endif()
