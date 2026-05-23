@@ -1,5 +1,7 @@
 target_sources(engine PRIVATE
     renderer_vulkan.cpp
+    vulkan_swapchain.cpp
+    vulkan_utils.cpp
 )
 
 find_package(Vulkan QUIET)

@@ -1,4 +1,6 @@
 #include "renderer.h"
+#include "vulkan_swapchain.hpp"
+#include "vulkan_utils.hpp"
 
 #include <glm/mat4x4.hpp>
 
@@ -7,28 +9,33 @@
 #include <vulkan/vulkan_metal.h>
 #endif
 
-#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
-#include <fstream>
-#include <limits>
+#include <utility>
 #include <vector>
 
 namespace {
 
-constexpr uint32_t invalid_queue_family = std::numeric_limits<uint32_t>::max();
+using engine::vulkan::check_vk;
+using engine::vulkan::choose_present_mode;
+using engine::vulkan::choose_surface_format;
+using engine::vulkan::choose_swapchain_extent;
+using engine::vulkan::enumerate_device_extensions;
+using engine::vulkan::enumerate_instance_extensions;
+using engine::vulkan::extension_available;
+using engine::vulkan::find_memory_type;
+using engine::vulkan::invalid_queue_family;
+using engine::vulkan::print_vk_error;
+using engine::vulkan::query_swapchain_support;
+using engine::vulkan::read_binary_file;
+using engine::vulkan::required_extensions_available;
+using engine::vulkan::SwapchainSupport;
 
 struct QueueFamilies {
   uint32_t graphics = invalid_queue_family;
   uint32_t present = invalid_queue_family;
-};
-
-struct SwapchainSupport {
-  VkSurfaceCapabilitiesKHR capabilities{};
-  std::vector<VkSurfaceFormatKHR> formats;
-  std::vector<VkPresentModeKHR> present_modes;
 };
 
 struct Vertex {
@@ -39,131 +46,6 @@ struct Vertex {
 struct FrameUniforms {
   glm::mat4 matrix{1.0f};
 };
-
-const char *vk_result_name(VkResult result) {
-  switch (result) {
-  case VK_SUCCESS:
-    return "VK_SUCCESS";
-  case VK_NOT_READY:
-    return "VK_NOT_READY";
-  case VK_TIMEOUT:
-    return "VK_TIMEOUT";
-  case VK_EVENT_SET:
-    return "VK_EVENT_SET";
-  case VK_EVENT_RESET:
-    return "VK_EVENT_RESET";
-  case VK_INCOMPLETE:
-    return "VK_INCOMPLETE";
-  case VK_ERROR_OUT_OF_HOST_MEMORY:
-    return "VK_ERROR_OUT_OF_HOST_MEMORY";
-  case VK_ERROR_OUT_OF_DEVICE_MEMORY:
-    return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
-  case VK_ERROR_INITIALIZATION_FAILED:
-    return "VK_ERROR_INITIALIZATION_FAILED";
-  case VK_ERROR_DEVICE_LOST:
-    return "VK_ERROR_DEVICE_LOST";
-  case VK_ERROR_MEMORY_MAP_FAILED:
-    return "VK_ERROR_MEMORY_MAP_FAILED";
-  case VK_ERROR_LAYER_NOT_PRESENT:
-    return "VK_ERROR_LAYER_NOT_PRESENT";
-  case VK_ERROR_EXTENSION_NOT_PRESENT:
-    return "VK_ERROR_EXTENSION_NOT_PRESENT";
-  case VK_ERROR_FEATURE_NOT_PRESENT:
-    return "VK_ERROR_FEATURE_NOT_PRESENT";
-  case VK_ERROR_INCOMPATIBLE_DRIVER:
-    return "VK_ERROR_INCOMPATIBLE_DRIVER";
-  case VK_ERROR_TOO_MANY_OBJECTS:
-    return "VK_ERROR_TOO_MANY_OBJECTS";
-  case VK_ERROR_FORMAT_NOT_SUPPORTED:
-    return "VK_ERROR_FORMAT_NOT_SUPPORTED";
-  case VK_ERROR_SURFACE_LOST_KHR:
-    return "VK_ERROR_SURFACE_LOST_KHR";
-  case VK_ERROR_NATIVE_WINDOW_IN_USE_KHR:
-    return "VK_ERROR_NATIVE_WINDOW_IN_USE_KHR";
-  default:
-    return "unknown VkResult";
-  }
-}
-
-void print_vk_error(const char *context, VkResult result) {
-  std::fprintf(stderr, "[renderer] %s: %s (%d)\n", context,
-               vk_result_name(result), result);
-}
-
-bool check_vk(VkResult result, const char *context) {
-  if (result == VK_SUCCESS) {
-    return true;
-  }
-
-  print_vk_error(context, result);
-  return false;
-}
-
-bool extension_available(const std::vector<VkExtensionProperties> &extensions,
-                         const char *name) {
-  for (const auto &extension : extensions) {
-    if (std::strcmp(extension.extensionName, name) == 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool enumerate_instance_extensions(
-    std::vector<VkExtensionProperties> &extensions) {
-  uint32_t extension_count = 0;
-  if (!check_vk(vkEnumerateInstanceExtensionProperties(
-                    nullptr, &extension_count, nullptr),
-                "failed to count Vulkan instance extensions")) {
-    return false;
-  }
-
-  extensions.resize(extension_count);
-  if (!check_vk(vkEnumerateInstanceExtensionProperties(
-                    nullptr, &extension_count, extensions.data()),
-                "failed to enumerate Vulkan instance extensions")) {
-    return false;
-  }
-
-  return true;
-}
-
-bool required_extensions_available(
-    const std::vector<VkExtensionProperties> &available,
-    const char *const *required, uint32_t required_count,
-    const char *extension_kind) {
-  for (uint32_t i = 0; i < required_count; ++i) {
-    if (!extension_available(available, required[i])) {
-      std::fprintf(stderr,
-                   "[renderer] missing required Vulkan %s extension: %s\n",
-                   extension_kind, required[i]);
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool enumerate_device_extensions(
-    VkPhysicalDevice physical_device,
-    std::vector<VkExtensionProperties> &extensions) {
-  uint32_t extension_count = 0;
-  if (!check_vk(vkEnumerateDeviceExtensionProperties(physical_device, nullptr,
-                                                     &extension_count, nullptr),
-                "failed to count Vulkan device extensions")) {
-    return false;
-  }
-
-  extensions.resize(extension_count);
-  if (!check_vk(vkEnumerateDeviceExtensionProperties(physical_device, nullptr,
-                                                     &extension_count,
-                                                     extensions.data()),
-                "failed to enumerate Vulkan device extensions")) {
-    return false;
-  }
-
-  return true;
-}
 
 QueueFamilies find_queue_families(VkPhysicalDevice physical_device,
                                   VkSurfaceKHR surface) {
@@ -203,124 +85,6 @@ QueueFamilies find_queue_families(VkPhysicalDevice physical_device,
 bool queue_families_complete(const QueueFamilies &families) {
   return families.graphics != invalid_queue_family &&
          families.present != invalid_queue_family;
-}
-
-bool query_swapchain_support(VkPhysicalDevice physical_device,
-                             VkSurfaceKHR surface, SwapchainSupport &support) {
-  if (!check_vk(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-                    physical_device, surface, &support.capabilities),
-                "failed to query Vulkan surface capabilities")) {
-    return false;
-  }
-
-  uint32_t format_count = 0;
-  if (!check_vk(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device, surface,
-                                                     &format_count, nullptr),
-                "failed to count Vulkan surface formats")) {
-    return false;
-  }
-  support.formats.resize(format_count);
-  if (format_count > 0 && !check_vk(vkGetPhysicalDeviceSurfaceFormatsKHR(
-                                        physical_device, surface, &format_count,
-                                        support.formats.data()),
-                                    "failed to query Vulkan surface formats")) {
-    return false;
-  }
-
-  uint32_t present_mode_count = 0;
-  if (!check_vk(vkGetPhysicalDeviceSurfacePresentModesKHR(
-                    physical_device, surface, &present_mode_count, nullptr),
-                "failed to count Vulkan present modes")) {
-    return false;
-  }
-  support.present_modes.resize(present_mode_count);
-  if (present_mode_count > 0 &&
-      !check_vk(vkGetPhysicalDeviceSurfacePresentModesKHR(
-                    physical_device, surface, &present_mode_count,
-                    support.present_modes.data()),
-                "failed to query Vulkan present modes")) {
-    return false;
-  }
-
-  return true;
-}
-
-VkSurfaceFormatKHR
-choose_surface_format(const std::vector<VkSurfaceFormatKHR> &formats) {
-  for (const auto &format : formats) {
-    if (format.format == VK_FORMAT_B8G8R8A8_UNORM &&
-        format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-      return format;
-    }
-  }
-  return formats.front();
-}
-
-VkPresentModeKHR
-choose_present_mode(const std::vector<VkPresentModeKHR> &present_modes) {
-  for (VkPresentModeKHR mode : present_modes) {
-    if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
-      return mode;
-    }
-  }
-  return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR &capabilities,
-                                   uint32_t width, uint32_t height) {
-  if (capabilities.currentExtent.width !=
-      std::numeric_limits<uint32_t>::max()) {
-    return capabilities.currentExtent;
-  }
-
-  VkExtent2D extent{width, height};
-  extent.width = std::clamp(extent.width, capabilities.minImageExtent.width,
-                            capabilities.maxImageExtent.width);
-  extent.height = std::clamp(extent.height, capabilities.minImageExtent.height,
-                             capabilities.maxImageExtent.height);
-  return extent;
-}
-
-uint32_t find_memory_type(VkPhysicalDevice physical_device,
-                          uint32_t type_filter,
-                          VkMemoryPropertyFlags properties) {
-  VkPhysicalDeviceMemoryProperties memory_properties{};
-  vkGetPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
-
-  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
-    const bool type_matches = (type_filter & (1 << i)) != 0;
-    const bool properties_match =
-        (memory_properties.memoryTypes[i].propertyFlags & properties) ==
-        properties;
-    if (type_matches && properties_match) {
-      return i;
-    }
-  }
-
-  return invalid_queue_family;
-}
-
-bool read_binary_file(const char *path, std::vector<char> &bytes) {
-  std::ifstream file(path, std::ios::ate | std::ios::binary);
-  if (!file.is_open()) {
-    std::fprintf(stderr, "[renderer] failed to open shader %s\n", path);
-    return false;
-  }
-
-  const std::streamsize size = file.tellg();
-  if (size <= 0) {
-    std::fprintf(stderr, "[renderer] shader %s is empty\n", path);
-    return false;
-  }
-
-  bytes.resize(static_cast<size_t>(size));
-  file.seekg(0);
-  if (!file.read(bytes.data(), size)) {
-    std::fprintf(stderr, "[renderer] failed to read shader %s\n", path);
-    return false;
-  }
-
-  return true;
 }
 
 } // namespace
