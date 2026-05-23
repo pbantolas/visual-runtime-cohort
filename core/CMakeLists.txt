@@ -1,11 +1,15 @@
 set(ENGINE_BACKEND "Metal" CACHE STRING "Renderer backend")
 set_property(CACHE ENGINE_BACKEND PROPERTY STRINGS Metal)
 
-add_library(engine SHARED src/engine.cpp src/renderer.cpp)
+add_library(engine SHARED src/engine.cpp)
 
 target_include_directories(engine PUBLIC
     include
     ${CMAKE_SOURCE_DIR}/third_party/glm
+)
+
+target_include_directories(engine PRIVATE
+    src
 )
 
 set_target_properties(engine PROPERTIES
@@ -19,7 +23,11 @@ if(ENGINE_BACKEND STREQUAL "Metal")
 
     find_program(XCRUN_EXECUTABLE xcrun REQUIRED)
 
-    set(ENGINE_SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/basic.metal")
+    target_sources(engine PRIVATE
+        src/backend/metal/renderer_metal.cpp
+    )
+
+    set(ENGINE_SHADER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/shaders/metal/basic.metal")
     set(ENGINE_SHADER_AIR "${CMAKE_BINARY_DIR}/shaders/basic.air")
     set(ENGINE_SHADER_LIB "${CMAKE_BINARY_DIR}/lib/basic.metallib")
     set(ENGINE_SHADER_MODULE_CACHE "${CMAKE_BINARY_DIR}/metal-module-cache")

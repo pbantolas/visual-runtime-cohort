@@ -2,30 +2,24 @@
 
 #include "engine/api.h"
 
-#include "Foundation/Foundation.hpp"
-#include "QuartzCore/QuartzCore.hpp"
-#include "Metal/Metal.hpp"
+#include <memory>
+
+struct RendererBackend;
 
 struct Renderer {
+    Renderer();
+    ~Renderer();
+
+    Renderer(const Renderer&) = delete;
+    Renderer& operator=(const Renderer&) = delete;
+    Renderer(Renderer&&) noexcept;
+    Renderer& operator=(Renderer&&) noexcept;
+
     bool init(SurfaceDescriptor* surface);
     void resize(uint32_t width, uint32_t height);
     void render_frame(float t);
     void shutdown();
 
 private:
-    bool build_pipeline();
-    bool build_geometry();
-    bool build_uniforms();
-    void update_frame_uniforms();
-
-    CA::MetalLayer*            layer_          = nullptr;
-    MTL::Device*               device_         = nullptr;
-    MTL::CommandQueue*         queue_          = nullptr;
-    MTL::Library*              library_        = nullptr;
-    MTL::RenderPipelineState*  pipeline_       = nullptr;
-    MTL::Buffer*               vertex_buffer_  = nullptr;
-    MTL::Buffer*               frame_uniform_buffer_ = nullptr;
-    NS::UInteger               vertex_count_   = 0;
-    uint32_t                   render_width_   = 0;
-    uint32_t                   render_height_  = 0;
+    std::unique_ptr<RendererBackend> backend_;
 };
