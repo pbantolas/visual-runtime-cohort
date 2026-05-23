@@ -1,19 +1,16 @@
 #include "renderer.h"
+#include "vulkan_context.hpp"
 #include "vulkan_swapchain.hpp"
 #include "vulkan_utils.hpp"
 
 #include <glm/mat4x4.hpp>
 
 #include <vulkan/vulkan.h>
-#if defined(__APPLE__)
-#include <vulkan/vulkan_metal.h>
-#endif
 
 #include <array>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
-#include <utility>
 #include <vector>
 
 namespace {
@@ -22,21 +19,13 @@ using engine::vulkan::check_vk;
 using engine::vulkan::choose_present_mode;
 using engine::vulkan::choose_surface_format;
 using engine::vulkan::choose_swapchain_extent;
-using engine::vulkan::enumerate_device_extensions;
-using engine::vulkan::enumerate_instance_extensions;
-using engine::vulkan::extension_available;
 using engine::vulkan::find_memory_type;
 using engine::vulkan::invalid_queue_family;
 using engine::vulkan::print_vk_error;
 using engine::vulkan::query_swapchain_support;
 using engine::vulkan::read_binary_file;
-using engine::vulkan::required_extensions_available;
 using engine::vulkan::SwapchainSupport;
-
-struct QueueFamilies {
-  uint32_t graphics = invalid_queue_family;
-  uint32_t present = invalid_queue_family;
-};
+using engine::vulkan::VulkanContext;
 
 struct Vertex {
   float position[2];
@@ -47,46 +36,6 @@ struct FrameUniforms {
   glm::mat4 matrix{1.0f};
 };
 
-QueueFamilies find_queue_families(VkPhysicalDevice physical_device,
-                                  VkSurfaceKHR surface) {
-  QueueFamilies families{};
-
-  uint32_t family_count = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count,
-                                           nullptr);
-
-  std::vector<VkQueueFamilyProperties> family_properties(family_count);
-  vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &family_count,
-                                           family_properties.data());
-
-  for (uint32_t i = 0; i < family_count; ++i) {
-    const auto &family = family_properties[i];
-    if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-      families.graphics = i;
-    }
-
-    VkBool32 present_supported = VK_FALSE;
-    if (check_vk(vkGetPhysicalDeviceSurfaceSupportKHR(
-                     physical_device, i, surface, &present_supported),
-                 "failed to query Vulkan present support") &&
-        present_supported) {
-      families.present = i;
-    }
-
-    if (families.graphics != invalid_queue_family &&
-        families.present != invalid_queue_family) {
-      break;
-    }
-  }
-
-  return families;
-}
-
-bool queue_families_complete(const QueueFamilies &families) {
-  return families.graphics != invalid_queue_family &&
-         families.present != invalid_queue_family;
-}
-
 } // namespace
 
 struct RendererBackend {
@@ -96,13 +45,6 @@ struct RendererBackend {
   void shutdown();
 
 private:
-  bool create_instance();
-  bool create_surface(void *native_handle);
-  bool pick_physical_device();
-  bool physical_device_suitable(VkPhysicalDevice physical_device,
-                                QueueFamilies &families,
-                                std::vector<const char *> &device_extensions);
-  bool create_device();
   bool create_swapchain();
   bool create_image_views();
   bool create_command_pool();
@@ -127,12 +69,7 @@ private:
   void destroy_swapchain();
   void destroy_buffer(VkBuffer &buffer, VkDeviceMemory &memory);
 
-  VkInstance instance_ = VK_NULL_HANDLE;
-  VkSurfaceKHR surface_ = VK_NULL_HANDLE;
-  VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
-  VkDevice device_ = VK_NULL_HANDLE;
-  VkQueue graphics_queue_ = VK_NULL_HANDLE;
-  VkQueue present_queue_ = VK_NULL_HANDLE;
+  VulkanContext context_;
   VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
   VkFormat swapchain_format_ = VK_FORMAT_UNDEFINED;
   VkExtent2D swapchain_extent_{};
@@ -153,8 +90,6 @@ private:
   VkDescriptorSet descriptor_set_ = VK_NULL_HANDLE;
   VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
   VkPipeline pipeline_ = VK_NULL_HANDLE;
-  QueueFamilies queue_families_{};
-  std::vector<const char *> device_extensions_{};
   uint32_t render_width_ = 0;
   uint32_t render_height_ = 0;
 };
@@ -198,8 +133,7 @@ bool RendererBackend::init(SurfaceDescriptor *surface) {
 
   shutdown();
 
-  if (!create_instance() || !create_surface(surface->native_handle) ||
-      !pick_physical_device() || !create_device() || !create_command_pool() ||
+  if (!context_.init(surface) || !create_command_pool() ||
       !create_sync_objects() || !create_descriptor_layout() ||
       !build_geometry() || !build_uniforms() || !create_descriptor_pool() ||
       !create_descriptor_set()) {
@@ -209,7 +143,6 @@ bool RendererBackend::init(SurfaceDescriptor *surface) {
 
   resize(surface->width, surface->height);
 
-  std::fprintf(stderr, "[renderer] Vulkan device and surface initialized\n");
   return true;
 }
 
@@ -218,7 +151,7 @@ void RendererBackend::resize(uint32_t width, uint32_t height) {
   render_height_ = height;
   update_frame_uniforms();
 
-  if (device_ == VK_NULL_HANDLE || width == 0 || height == 0) {
+  if (context_.device() == VK_NULL_HANDLE || width == 0 || height == 0) {
     return;
   }
 
@@ -238,16 +171,16 @@ void RendererBackend::render_frame(float t) {
     return;
   }
 
-  if (!check_vk(
-          vkWaitForFences(device_, 1, &frame_in_flight_, VK_TRUE, UINT64_MAX),
-          "failed to wait for Vulkan frame fence")) {
+  if (!check_vk(vkWaitForFences(context_.device(), 1, &frame_in_flight_,
+                                VK_TRUE, UINT64_MAX),
+                "failed to wait for Vulkan frame fence")) {
     return;
   }
 
   uint32_t image_index = 0;
   VkResult acquire_result =
-      vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, image_available_,
-                            VK_NULL_HANDLE, &image_index);
+      vkAcquireNextImageKHR(context_.device(), swapchain_, UINT64_MAX,
+                            image_available_, VK_NULL_HANDLE, &image_index);
   if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR) {
     recreate_frame_resources();
     return;
@@ -262,7 +195,7 @@ void RendererBackend::render_frame(float t) {
   if (!record_clear_commands(image_index)) {
     return;
   }
-  if (!check_vk(vkResetFences(device_, 1, &frame_in_flight_),
+  if (!check_vk(vkResetFences(context_.device(), 1, &frame_in_flight_),
                 "failed to reset Vulkan frame fence")) {
     return;
   }
@@ -279,9 +212,9 @@ void RendererBackend::render_frame(float t) {
   submit_info.signalSemaphoreCount = 1;
   submit_info.pSignalSemaphores = &render_finished_;
 
-  if (!check_vk(
-          vkQueueSubmit(graphics_queue_, 1, &submit_info, frame_in_flight_),
-          "failed to submit Vulkan clear commands")) {
+  if (!check_vk(vkQueueSubmit(context_.graphics_queue(), 1, &submit_info,
+                              frame_in_flight_),
+                "failed to submit Vulkan clear commands")) {
     return;
   }
 
@@ -293,7 +226,8 @@ void RendererBackend::render_frame(float t) {
   present_info.pSwapchains = &swapchain_;
   present_info.pImageIndices = &image_index;
 
-  VkResult present_result = vkQueuePresentKHR(present_queue_, &present_info);
+  VkResult present_result =
+      vkQueuePresentKHR(context_.present_queue(), &present_info);
   if (present_result == VK_ERROR_OUT_OF_DATE_KHR ||
       present_result == VK_SUBOPTIMAL_KHR || should_recreate_after_present) {
     recreate_frame_resources();
@@ -303,16 +237,17 @@ void RendererBackend::render_frame(float t) {
 }
 
 void RendererBackend::shutdown() {
-  if (device_ != VK_NULL_HANDLE) {
-    vkDeviceWaitIdle(device_);
+  if (context_.device() != VK_NULL_HANDLE) {
+    vkDeviceWaitIdle(context_.device());
     destroy_pipeline();
     if (descriptor_pool_ != VK_NULL_HANDLE) {
-      vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
+      vkDestroyDescriptorPool(context_.device(), descriptor_pool_, nullptr);
       descriptor_pool_ = VK_NULL_HANDLE;
       descriptor_set_ = VK_NULL_HANDLE;
     }
     if (descriptor_set_layout_ != VK_NULL_HANDLE) {
-      vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+      vkDestroyDescriptorSetLayout(context_.device(), descriptor_set_layout_,
+                                   nullptr);
       descriptor_set_layout_ = VK_NULL_HANDLE;
     }
     destroy_buffer(frame_uniform_buffer_, frame_uniform_buffer_memory_);
@@ -320,289 +255,31 @@ void RendererBackend::shutdown() {
     vertex_count_ = 0;
     destroy_swapchain();
     if (frame_in_flight_ != VK_NULL_HANDLE) {
-      vkDestroyFence(device_, frame_in_flight_, nullptr);
+      vkDestroyFence(context_.device(), frame_in_flight_, nullptr);
       frame_in_flight_ = VK_NULL_HANDLE;
     }
     if (render_finished_ != VK_NULL_HANDLE) {
-      vkDestroySemaphore(device_, render_finished_, nullptr);
+      vkDestroySemaphore(context_.device(), render_finished_, nullptr);
       render_finished_ = VK_NULL_HANDLE;
     }
     if (image_available_ != VK_NULL_HANDLE) {
-      vkDestroySemaphore(device_, image_available_, nullptr);
+      vkDestroySemaphore(context_.device(), image_available_, nullptr);
       image_available_ = VK_NULL_HANDLE;
     }
     if (command_pool_ != VK_NULL_HANDLE) {
-      vkDestroyCommandPool(device_, command_pool_, nullptr);
+      vkDestroyCommandPool(context_.device(), command_pool_, nullptr);
       command_pool_ = VK_NULL_HANDLE;
     }
-    vkDestroyDevice(device_, nullptr);
-    device_ = VK_NULL_HANDLE;
   }
-  graphics_queue_ = VK_NULL_HANDLE;
-  present_queue_ = VK_NULL_HANDLE;
-  physical_device_ = VK_NULL_HANDLE;
-  queue_families_ = {};
-  device_extensions_.clear();
-  if (surface_ != VK_NULL_HANDLE) {
-    vkDestroySurfaceKHR(instance_, surface_, nullptr);
-    surface_ = VK_NULL_HANDLE;
-  }
-  if (instance_ != VK_NULL_HANDLE) {
-    vkDestroyInstance(instance_, nullptr);
-    instance_ = VK_NULL_HANDLE;
-  }
+  context_.shutdown();
   render_width_ = 0;
   render_height_ = 0;
 }
 
-bool RendererBackend::create_instance() {
-  std::vector<VkExtensionProperties> available_extensions;
-  if (!enumerate_instance_extensions(available_extensions)) {
-    return false;
-  }
-
-  std::vector<const char *> extensions{VK_KHR_SURFACE_EXTENSION_NAME};
-#if defined(__APPLE__)
-  extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
-#if defined(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
-  bool enable_portability_enumeration = extension_available(
-      available_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-  if (enable_portability_enumeration) {
-    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-  }
-#else
-  bool enable_portability_enumeration = false;
-#endif
-#else
-  bool enable_portability_enumeration = false;
-#endif
-
-  if (!required_extensions_available(available_extensions, extensions.data(),
-                                     static_cast<uint32_t>(extensions.size()),
-                                     "instance")) {
-    return false;
-  }
-
-  VkApplicationInfo app_info{};
-  app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  app_info.pApplicationName = "Graphics Engine Cohort";
-  app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-  app_info.pEngineName = "Graphics Engine";
-  app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
-  app_info.apiVersion = VK_API_VERSION_1_3;
-
-  VkInstanceCreateInfo create_info{};
-  create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-  create_info.pApplicationInfo = &app_info;
-  create_info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-  create_info.ppEnabledExtensionNames = extensions.data();
-  if (enable_portability_enumeration) {
-    create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-  }
-
-  if (!check_vk(vkCreateInstance(&create_info, nullptr, &instance_),
-                "failed to create Vulkan instance")) {
-    return false;
-  }
-
-  return true;
-}
-
-bool RendererBackend::create_surface(void *native_handle) {
-#if defined(__APPLE__)
-  auto create_metal_surface = reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
-      vkGetInstanceProcAddr(instance_, "vkCreateMetalSurfaceEXT"));
-  if (!create_metal_surface) {
-    std::fprintf(stderr, "[renderer] failed to load vkCreateMetalSurfaceEXT\n");
-    return false;
-  }
-
-  VkMetalSurfaceCreateInfoEXT create_info{};
-  create_info.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
-  create_info.pLayer = native_handle;
-
-  if (!check_vk(
-          create_metal_surface(instance_, &create_info, nullptr, &surface_),
-          "failed to create Vulkan Metal surface")) {
-    return false;
-  }
-
-  return true;
-#else
-  (void)native_handle;
-  std::fprintf(stderr,
-               "[renderer] Vulkan surface creation is not implemented for this "
-               "platform yet\n");
-  return false;
-#endif
-}
-
-bool RendererBackend::pick_physical_device() {
-  uint32_t device_count = 0;
-  if (!check_vk(vkEnumeratePhysicalDevices(instance_, &device_count, nullptr),
-                "failed to count Vulkan physical devices")) {
-    return false;
-  }
-  if (device_count == 0) {
-    std::fprintf(stderr, "[renderer] no Vulkan physical devices found\n");
-    return false;
-  }
-
-  std::vector<VkPhysicalDevice> devices(device_count);
-  if (!check_vk(
-          vkEnumeratePhysicalDevices(instance_, &device_count, devices.data()),
-          "failed to enumerate Vulkan physical devices")) {
-    return false;
-  }
-
-  for (VkPhysicalDevice device : devices) {
-    QueueFamilies families{};
-    std::vector<const char *> extensions;
-    if (physical_device_suitable(device, families, extensions)) {
-      physical_device_ = device;
-      queue_families_ = families;
-      device_extensions_ = std::move(extensions);
-
-      VkPhysicalDeviceProperties properties{};
-      vkGetPhysicalDeviceProperties(physical_device_, &properties);
-      std::fprintf(stderr, "[renderer] selected Vulkan device: %s\n",
-                   properties.deviceName);
-      return true;
-    }
-  }
-
-  std::fprintf(stderr, "[renderer] no suitable Vulkan physical device found\n");
-  return false;
-}
-
-bool RendererBackend::physical_device_suitable(
-    VkPhysicalDevice physical_device, QueueFamilies &families,
-    std::vector<const char *> &device_extensions) {
-  VkPhysicalDeviceProperties properties{};
-  vkGetPhysicalDeviceProperties(physical_device, &properties);
-  if (properties.apiVersion < VK_API_VERSION_1_3) {
-    std::fprintf(stderr,
-                 "[renderer] rejecting Vulkan device %s: Vulkan 1.3 is "
-                 "required\n",
-                 properties.deviceName);
-    return false;
-  }
-
-  VkPhysicalDeviceVulkan13Features vulkan13_features{};
-  vulkan13_features.sType =
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-
-  VkPhysicalDeviceFeatures2 features{};
-  features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  features.pNext = &vulkan13_features;
-  vkGetPhysicalDeviceFeatures2(physical_device, &features);
-  if (!vulkan13_features.dynamicRendering ||
-      !vulkan13_features.synchronization2) {
-    std::fprintf(stderr,
-                 "[renderer] rejecting Vulkan device %s: dynamic rendering "
-                 "and synchronization2 are required\n",
-                 properties.deviceName);
-    return false;
-  }
-
-  std::vector<VkExtensionProperties> available_extensions;
-  if (!enumerate_device_extensions(physical_device, available_extensions)) {
-    return false;
-  }
-
-  device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-#if defined(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)
-  if (extension_available(available_extensions,
-                          VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)) {
-    device_extensions.push_back(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME);
-  }
-#endif
-
-  if (!required_extensions_available(
-          available_extensions, device_extensions.data(),
-          static_cast<uint32_t>(device_extensions.size()), "device")) {
-    std::fprintf(stderr,
-                 "[renderer] rejecting Vulkan device %s: required device "
-                 "extensions are missing\n",
-                 properties.deviceName);
-    return false;
-  }
-
-  families = find_queue_families(physical_device, surface_);
-  if (!queue_families_complete(families)) {
-    std::fprintf(stderr,
-                 "[renderer] rejecting Vulkan device %s: graphics and present "
-                 "queues are required\n",
-                 properties.deviceName);
-    return false;
-  }
-
-  SwapchainSupport swapchain_support{};
-  if (!query_swapchain_support(physical_device, surface_, swapchain_support)) {
-    return false;
-  }
-  if (swapchain_support.formats.empty() ||
-      swapchain_support.present_modes.empty()) {
-    std::fprintf(stderr,
-                 "[renderer] rejecting Vulkan device %s: swapchain formats "
-                 "and present modes are required\n",
-                 properties.deviceName);
-    return false;
-  }
-
-  return true;
-}
-
-bool RendererBackend::create_device() {
-  std::vector<VkDeviceQueueCreateInfo> queue_infos;
-  std::vector<uint32_t> unique_queue_families{queue_families_.graphics};
-  if (queue_families_.present != queue_families_.graphics) {
-    unique_queue_families.push_back(queue_families_.present);
-  }
-
-  float queue_priority = 1.0f;
-  for (uint32_t queue_family : unique_queue_families) {
-    VkDeviceQueueCreateInfo queue_info{};
-    queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_info.queueFamilyIndex = queue_family;
-    queue_info.queueCount = 1;
-    queue_info.pQueuePriorities = &queue_priority;
-    queue_infos.push_back(queue_info);
-  }
-
-  VkPhysicalDeviceVulkan13Features vulkan13_features{};
-  vulkan13_features.sType =
-      VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-  vulkan13_features.dynamicRendering = VK_TRUE;
-  vulkan13_features.synchronization2 = VK_TRUE;
-
-  VkPhysicalDeviceFeatures2 features{};
-  features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  features.pNext = &vulkan13_features;
-
-  VkDeviceCreateInfo create_info{};
-  create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  create_info.pNext = &features;
-  create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_infos.size());
-  create_info.pQueueCreateInfos = queue_infos.data();
-  create_info.enabledExtensionCount =
-      static_cast<uint32_t>(device_extensions_.size());
-  create_info.ppEnabledExtensionNames = device_extensions_.data();
-
-  if (!check_vk(
-          vkCreateDevice(physical_device_, &create_info, nullptr, &device_),
-          "failed to create Vulkan device")) {
-    return false;
-  }
-
-  vkGetDeviceQueue(device_, queue_families_.graphics, 0, &graphics_queue_);
-  vkGetDeviceQueue(device_, queue_families_.present, 0, &present_queue_);
-  return true;
-}
-
 bool RendererBackend::create_swapchain() {
   SwapchainSupport support{};
-  if (!query_swapchain_support(physical_device_, surface_, support) ||
+  if (!query_swapchain_support(context_.physical_device(), context_.surface(),
+                               support) ||
       support.formats.empty() || support.present_modes.empty()) {
     return false;
   }
@@ -620,7 +297,7 @@ bool RendererBackend::create_swapchain() {
 
   VkSwapchainCreateInfoKHR create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  create_info.surface = surface_;
+  create_info.surface = context_.surface();
   create_info.minImageCount = image_count;
   create_info.imageFormat = surface_format.format;
   create_info.imageColorSpace = surface_format.colorSpace;
@@ -629,10 +306,10 @@ bool RendererBackend::create_swapchain() {
   create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
   std::array<uint32_t, 2> queue_family_indices{
-      queue_families_.graphics,
-      queue_families_.present,
+      context_.queue_families().graphics,
+      context_.queue_families().present,
   };
-  if (queue_families_.graphics != queue_families_.present) {
+  if (context_.queue_families().graphics != context_.queue_families().present) {
     create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
     create_info.queueFamilyIndexCount =
         static_cast<uint32_t>(queue_family_indices.size());
@@ -646,20 +323,20 @@ bool RendererBackend::create_swapchain() {
   create_info.presentMode = present_mode;
   create_info.clipped = VK_TRUE;
 
-  if (!check_vk(
-          vkCreateSwapchainKHR(device_, &create_info, nullptr, &swapchain_),
-          "failed to create Vulkan swapchain")) {
+  if (!check_vk(vkCreateSwapchainKHR(context_.device(), &create_info, nullptr,
+                                     &swapchain_),
+                "failed to create Vulkan swapchain")) {
     return false;
   }
 
-  if (!check_vk(
-          vkGetSwapchainImagesKHR(device_, swapchain_, &image_count, nullptr),
-          "failed to count Vulkan swapchain images")) {
+  if (!check_vk(vkGetSwapchainImagesKHR(context_.device(), swapchain_,
+                                        &image_count, nullptr),
+                "failed to count Vulkan swapchain images")) {
     return false;
   }
   swapchain_images_.resize(image_count);
-  if (!check_vk(vkGetSwapchainImagesKHR(device_, swapchain_, &image_count,
-                                        swapchain_images_.data()),
+  if (!check_vk(vkGetSwapchainImagesKHR(context_.device(), swapchain_,
+                                        &image_count, swapchain_images_.data()),
                 "failed to get Vulkan swapchain images")) {
     return false;
   }
@@ -688,7 +365,7 @@ bool RendererBackend::create_image_views() {
     create_info.subresourceRange.baseArrayLayer = 0;
     create_info.subresourceRange.layerCount = 1;
 
-    if (!check_vk(vkCreateImageView(device_, &create_info, nullptr,
+    if (!check_vk(vkCreateImageView(context_.device(), &create_info, nullptr,
                                     &swapchain_image_views_[i]),
                   "failed to create Vulkan swapchain image view")) {
       return false;
@@ -702,11 +379,11 @@ bool RendererBackend::create_command_pool() {
   VkCommandPoolCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-  create_info.queueFamilyIndex = queue_families_.graphics;
+  create_info.queueFamilyIndex = context_.queue_families().graphics;
 
-  return check_vk(
-      vkCreateCommandPool(device_, &create_info, nullptr, &command_pool_),
-      "failed to create Vulkan command pool");
+  return check_vk(vkCreateCommandPool(context_.device(), &create_info, nullptr,
+                                      &command_pool_),
+                  "failed to create Vulkan command pool");
 }
 
 bool RendererBackend::create_command_buffers() {
@@ -719,7 +396,7 @@ bool RendererBackend::create_command_buffers() {
   allocate_info.commandBufferCount =
       static_cast<uint32_t>(command_buffers_.size());
 
-  return check_vk(vkAllocateCommandBuffers(device_, &allocate_info,
+  return check_vk(vkAllocateCommandBuffers(context_.device(), &allocate_info,
                                            command_buffers_.data()),
                   "failed to allocate Vulkan command buffers");
 }
@@ -732,15 +409,15 @@ bool RendererBackend::create_sync_objects() {
   fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
   fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-  return check_vk(vkCreateSemaphore(device_, &semaphore_info, nullptr,
+  return check_vk(vkCreateSemaphore(context_.device(), &semaphore_info, nullptr,
                                     &image_available_),
                   "failed to create Vulkan image-available semaphore") &&
-         check_vk(vkCreateSemaphore(device_, &semaphore_info, nullptr,
+         check_vk(vkCreateSemaphore(context_.device(), &semaphore_info, nullptr,
                                     &render_finished_),
                   "failed to create Vulkan render-finished semaphore") &&
-         check_vk(
-             vkCreateFence(device_, &fence_info, nullptr, &frame_in_flight_),
-             "failed to create Vulkan frame fence");
+         check_vk(vkCreateFence(context_.device(), &fence_info, nullptr,
+                                &frame_in_flight_),
+                  "failed to create Vulkan frame fence");
 }
 
 bool RendererBackend::create_frame_resources() {
@@ -766,8 +443,8 @@ void RendererBackend::recreate_frame_resources() {
     return;
   }
 
-  if (device_ != VK_NULL_HANDLE) {
-    vkDeviceWaitIdle(device_);
+  if (context_.device() != VK_NULL_HANDLE) {
+    vkDeviceWaitIdle(context_.device());
   }
   destroy_pipeline();
   destroy_swapchain();
@@ -796,13 +473,13 @@ bool RendererBackend::build_geometry() {
   }
 
   void *data = nullptr;
-  if (!check_vk(
-          vkMapMemory(device_, vertex_buffer_memory_, 0, buffer_size, 0, &data),
-          "failed to map Vulkan vertex buffer")) {
+  if (!check_vk(vkMapMemory(context_.device(), vertex_buffer_memory_, 0,
+                            buffer_size, 0, &data),
+                "failed to map Vulkan vertex buffer")) {
     return false;
   }
   std::memcpy(data, vertices, sizeof(vertices));
-  vkUnmapMemory(device_, vertex_buffer_memory_);
+  vkUnmapMemory(context_.device(), vertex_buffer_memory_);
 
   vertex_count_ = static_cast<uint32_t>(sizeof(vertices) / sizeof(vertices[0]));
   return true;
@@ -832,8 +509,8 @@ bool RendererBackend::create_descriptor_layout() {
   create_info.bindingCount = 1;
   create_info.pBindings = &frame_uniform_binding;
 
-  return check_vk(vkCreateDescriptorSetLayout(device_, &create_info, nullptr,
-                                              &descriptor_set_layout_),
+  return check_vk(vkCreateDescriptorSetLayout(context_.device(), &create_info,
+                                              nullptr, &descriptor_set_layout_),
                   "failed to create Vulkan descriptor set layout");
 }
 
@@ -848,9 +525,9 @@ bool RendererBackend::create_descriptor_pool() {
   create_info.pPoolSizes = &pool_size;
   create_info.maxSets = 1;
 
-  return check_vk(
-      vkCreateDescriptorPool(device_, &create_info, nullptr, &descriptor_pool_),
-      "failed to create Vulkan descriptor pool");
+  return check_vk(vkCreateDescriptorPool(context_.device(), &create_info,
+                                         nullptr, &descriptor_pool_),
+                  "failed to create Vulkan descriptor pool");
 }
 
 bool RendererBackend::create_descriptor_set() {
@@ -860,9 +537,9 @@ bool RendererBackend::create_descriptor_set() {
   allocate_info.descriptorSetCount = 1;
   allocate_info.pSetLayouts = &descriptor_set_layout_;
 
-  if (!check_vk(
-          vkAllocateDescriptorSets(device_, &allocate_info, &descriptor_set_),
-          "failed to allocate Vulkan descriptor set")) {
+  if (!check_vk(vkAllocateDescriptorSets(context_.device(), &allocate_info,
+                                         &descriptor_set_),
+                "failed to allocate Vulkan descriptor set")) {
     return false;
   }
 
@@ -879,7 +556,7 @@ bool RendererBackend::create_descriptor_set() {
   descriptor_write.descriptorCount = 1;
   descriptor_write.pBufferInfo = &buffer_info;
 
-  vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
+  vkUpdateDescriptorSets(context_.device(), 1, &descriptor_write, 0, nullptr);
   return true;
 }
 
@@ -889,10 +566,10 @@ bool RendererBackend::build_pipeline() {
   if (!create_shader_module(ENGINE_VULKAN_VERTEX_SPV_PATH, vertex_shader) ||
       !create_shader_module(ENGINE_VULKAN_FRAGMENT_SPV_PATH, fragment_shader)) {
     if (vertex_shader != VK_NULL_HANDLE) {
-      vkDestroyShaderModule(device_, vertex_shader, nullptr);
+      vkDestroyShaderModule(context_.device(), vertex_shader, nullptr);
     }
     if (fragment_shader != VK_NULL_HANDLE) {
-      vkDestroyShaderModule(device_, fragment_shader, nullptr);
+      vkDestroyShaderModule(context_.device(), fragment_shader, nullptr);
     }
     return false;
   }
@@ -987,11 +664,11 @@ bool RendererBackend::build_pipeline() {
   layout_info.setLayoutCount = 1;
   layout_info.pSetLayouts = &descriptor_set_layout_;
 
-  if (!check_vk(vkCreatePipelineLayout(device_, &layout_info, nullptr,
+  if (!check_vk(vkCreatePipelineLayout(context_.device(), &layout_info, nullptr,
                                        &pipeline_layout_),
                 "failed to create Vulkan pipeline layout")) {
-    vkDestroyShaderModule(device_, vertex_shader, nullptr);
-    vkDestroyShaderModule(device_, fragment_shader, nullptr);
+    vkDestroyShaderModule(context_.device(), vertex_shader, nullptr);
+    vkDestroyShaderModule(context_.device(), fragment_shader, nullptr);
     return false;
   }
 
@@ -1015,15 +692,15 @@ bool RendererBackend::build_pipeline() {
   pipeline_info.layout = pipeline_layout_;
 
   const bool created =
-      check_vk(vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1,
+      check_vk(vkCreateGraphicsPipelines(context_.device(), VK_NULL_HANDLE, 1,
                                          &pipeline_info, nullptr, &pipeline_),
                "failed to create Vulkan graphics pipeline");
   if (!created) {
     destroy_pipeline();
   }
 
-  vkDestroyShaderModule(device_, vertex_shader, nullptr);
-  vkDestroyShaderModule(device_, fragment_shader, nullptr);
+  vkDestroyShaderModule(context_.device(), vertex_shader, nullptr);
+  vkDestroyShaderModule(context_.device(), fragment_shader, nullptr);
   return created;
 }
 
@@ -1039,9 +716,9 @@ bool RendererBackend::create_shader_module(const char *path,
   create_info.codeSize = bytes.size();
   create_info.pCode = reinterpret_cast<const uint32_t *>(bytes.data());
 
-  return check_vk(
-      vkCreateShaderModule(device_, &create_info, nullptr, &shader_module),
-      "failed to create Vulkan shader module");
+  return check_vk(vkCreateShaderModule(context_.device(), &create_info, nullptr,
+                                       &shader_module),
+                  "failed to create Vulkan shader module");
 }
 
 bool RendererBackend::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
@@ -1053,16 +730,19 @@ bool RendererBackend::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
   buffer_info.usage = usage;
   buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  if (!check_vk(vkCreateBuffer(device_, &buffer_info, nullptr, &buffer),
-                "failed to create Vulkan buffer")) {
+  if (!check_vk(
+          vkCreateBuffer(context_.device(), &buffer_info, nullptr, &buffer),
+          "failed to create Vulkan buffer")) {
     return false;
   }
 
   VkMemoryRequirements memory_requirements{};
-  vkGetBufferMemoryRequirements(device_, buffer, &memory_requirements);
+  vkGetBufferMemoryRequirements(context_.device(), buffer,
+                                &memory_requirements);
 
-  const uint32_t memory_type = find_memory_type(
-      physical_device_, memory_requirements.memoryTypeBits, properties);
+  const uint32_t memory_type =
+      find_memory_type(context_.physical_device(),
+                       memory_requirements.memoryTypeBits, properties);
   if (memory_type == invalid_queue_family) {
     std::fprintf(stderr,
                  "[renderer] failed to find suitable Vulkan buffer memory\n");
@@ -1074,12 +754,13 @@ bool RendererBackend::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
   allocate_info.allocationSize = memory_requirements.size;
   allocate_info.memoryTypeIndex = memory_type;
 
-  if (!check_vk(vkAllocateMemory(device_, &allocate_info, nullptr, &memory),
-                "failed to allocate Vulkan buffer memory")) {
+  if (!check_vk(
+          vkAllocateMemory(context_.device(), &allocate_info, nullptr, &memory),
+          "failed to allocate Vulkan buffer memory")) {
     return false;
   }
 
-  return check_vk(vkBindBufferMemory(device_, buffer, memory, 0),
+  return check_vk(vkBindBufferMemory(context_.device(), buffer, memory, 0),
                   "failed to bind Vulkan buffer memory");
 }
 
@@ -1201,40 +882,40 @@ void RendererBackend::update_frame_uniforms() {
   uniforms.matrix[1][1] *= -1.0f;
 
   void *data = nullptr;
-  if (!check_vk(vkMapMemory(device_, frame_uniform_buffer_memory_, 0,
+  if (!check_vk(vkMapMemory(context_.device(), frame_uniform_buffer_memory_, 0,
                             sizeof(FrameUniforms), 0, &data),
                 "failed to map Vulkan frame uniform buffer")) {
     return;
   }
   std::memcpy(data, &uniforms, sizeof(uniforms));
-  vkUnmapMemory(device_, frame_uniform_buffer_memory_);
+  vkUnmapMemory(context_.device(), frame_uniform_buffer_memory_);
 }
 
 void RendererBackend::destroy_pipeline() {
   if (pipeline_ != VK_NULL_HANDLE) {
-    vkDestroyPipeline(device_, pipeline_, nullptr);
+    vkDestroyPipeline(context_.device(), pipeline_, nullptr);
     pipeline_ = VK_NULL_HANDLE;
   }
   if (pipeline_layout_ != VK_NULL_HANDLE) {
-    vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
+    vkDestroyPipelineLayout(context_.device(), pipeline_layout_, nullptr);
     pipeline_layout_ = VK_NULL_HANDLE;
   }
 }
 
 void RendererBackend::destroy_swapchain() {
   if (command_pool_ != VK_NULL_HANDLE && !command_buffers_.empty()) {
-    vkFreeCommandBuffers(device_, command_pool_,
+    vkFreeCommandBuffers(context_.device(), command_pool_,
                          static_cast<uint32_t>(command_buffers_.size()),
                          command_buffers_.data());
     command_buffers_.clear();
   }
   for (VkImageView image_view : swapchain_image_views_) {
-    vkDestroyImageView(device_, image_view, nullptr);
+    vkDestroyImageView(context_.device(), image_view, nullptr);
   }
   swapchain_image_views_.clear();
   swapchain_images_.clear();
   if (swapchain_ != VK_NULL_HANDLE) {
-    vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+    vkDestroySwapchainKHR(context_.device(), swapchain_, nullptr);
     swapchain_ = VK_NULL_HANDLE;
   }
   swapchain_format_ = VK_FORMAT_UNDEFINED;
@@ -1243,11 +924,11 @@ void RendererBackend::destroy_swapchain() {
 
 void RendererBackend::destroy_buffer(VkBuffer &buffer, VkDeviceMemory &memory) {
   if (buffer != VK_NULL_HANDLE) {
-    vkDestroyBuffer(device_, buffer, nullptr);
+    vkDestroyBuffer(context_.device(), buffer, nullptr);
     buffer = VK_NULL_HANDLE;
   }
   if (memory != VK_NULL_HANDLE) {
-    vkFreeMemory(device_, memory, nullptr);
+    vkFreeMemory(context_.device(), memory, nullptr);
     memory = VK_NULL_HANDLE;
   }
 }
