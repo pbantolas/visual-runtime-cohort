@@ -1,14 +1,12 @@
-# Renderer In Practice
-
-A hands-on course in building a renderer for a real product — no tutorials, just practice.
+# Graphics Engine Cohort Harness
 
 ## Overview
 
-This is the codebase for Renderer In Practice: a product-driven case study where you build a renderer grounded in a specific brief rather than following prescribed steps.
+This is the codebase for the Graphics Engine Cohort: a product-driven case study where you build a renderer grounded in a specific use case rather than following prescribed steps.
 
-The project is split into two layers: an **engine** (compiled as `libengine.dylib`) that owns all rendering logic, and a **host** that loads it at runtime through a versioned C API. That boundary is where your work begins. You work on the engine side; the host stays stable.
+The project is split into two layers: an **engine** that owns all rendering & interaction logic, and a **host** that owns the app shell and loads the engine at runtime. You work on the engine side for the most part; harness changes will usually be provided as the product brief evolves.
 
-Because the engine exposes a plain C API, any host that can load a shared library can drive it: a native macOS app, a headless worker, a Rust application, or a web frontend talking to a compiled engine binary. The current hosts are a macOS Metal window and a CLI loop, but the architecture doesn't prescribe what the host has to be.
+The current hosts are a native macOS Metal window and a small CLI loop, but the architecture keeps rendering code out of the app target so the engine can evolve independently.
 
 You can also recompile and reload the engine while the host is running with no restart required.
 
@@ -20,7 +18,7 @@ This project requires Xcode 15 or later. Install it from the Mac App Store if yo
 brew install cmake ninja just
 ```
 
-For the macOS GUI host, you also need `tuist` (`brew install tuist`). `xcbeautify` is optional but makes Xcode build output readable (`brew install xcbeautify`).
+If you want to modify the macOS project itself, you may also need `tuist` (`brew install tuist`) to generate the Xcode project. `xcbeautify` is optional but makes Xcode build output readable (`brew install xcbeautify`).
 
 ## Getting Started
 
@@ -40,7 +38,7 @@ just compile-commands
 
 ### macOS GUI host
 
-Generate the Xcode project and open it:
+Open the Xcode project:
 
 ```sh
 just macos-open
@@ -93,8 +91,8 @@ engine/
 **Harness vs. engine.**
 The host is the harness: it owns the window, the run loop, and the dylib lifecycle. The engine owns all rendering. They share nothing except the structs in `core/include/engine/api.h`. This boundary is the central design constraint of the course.
 
-**Versioned C ABI.**
-`EngineAPI` is a struct of function pointers tagged with `abi_version` and `struct_size`. The host validates both before calling anything. Mismatches are caught and reported rather than crashing, which makes it safe to reload a dylib compiled against a different build.
+**Versioned engine ABI.**
+`engine_get_api` is the only exported C-linkage entry point. It returns an `EngineAPI` struct of function pointers tagged with `abi_version` and `struct_size`. The host validates both before calling anything. Mismatches are caught and reported rather than crashing, which makes it safe to reload a dylib compiled against a different build.
 
 **Hot reload mechanism.**
 `DynamicLibrary::changed()` compares the dylib's mtime on every tick. When a change is detected, `EngineModule::reload()` calls `shutdown()` on the old API, unloads the dylib, reloads it, re-binds the function pointers, and calls `init()` again. The host process and its window never stop.
@@ -109,4 +107,4 @@ Shaders are compiled by CMake via `xcrun metal` and `xcrun metallib` into a `.me
 | `ENGINE_BACKEND` | CMake string | `Metal` | Renderer backend. Only `Metal` is supported. |
 | `CMAKE_BUILD_TYPE` | CMake string | `Debug` | Standard CMake build type. |
 
-Both are passed via the `backend` argument to just recipes, e.g. `just build Metal`.
+`ENGINE_BACKEND` is passed via the `backend` argument to just recipes, e.g. `just build Metal`. `CMAKE_BUILD_TYPE` is currently fixed to `Debug` by the configure recipe.
