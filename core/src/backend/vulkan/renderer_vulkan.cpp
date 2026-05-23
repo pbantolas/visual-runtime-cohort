@@ -345,6 +345,7 @@ private:
   bool create_command_buffers();
   bool create_sync_objects();
   bool create_frame_resources();
+  bool frame_resources_ready() const;
   bool build_geometry();
   bool build_uniforms();
   bool create_descriptor_layout();
@@ -456,7 +457,7 @@ void RendererBackend::resize(uint32_t width, uint32_t height) {
     return;
   }
 
-  if (swapchain_ == VK_NULL_HANDLE || swapchain_extent_.width != width ||
+  if (!frame_resources_ready() || swapchain_extent_.width != width ||
       swapchain_extent_.height != height) {
     vkDeviceWaitIdle(device_);
     destroy_pipeline();
@@ -973,8 +974,21 @@ bool RendererBackend::create_sync_objects() {
 }
 
 bool RendererBackend::create_frame_resources() {
-  return create_swapchain() && create_image_views() &&
-         create_command_buffers() && build_pipeline();
+  if (create_swapchain() && create_image_views() && create_command_buffers() &&
+      build_pipeline()) {
+    return true;
+  }
+
+  destroy_pipeline();
+  destroy_swapchain();
+  return false;
+}
+
+bool RendererBackend::frame_resources_ready() const {
+  return swapchain_ != VK_NULL_HANDLE && !swapchain_images_.empty() &&
+         swapchain_image_views_.size() == swapchain_images_.size() &&
+         command_buffers_.size() == swapchain_images_.size() &&
+         pipeline_layout_ != VK_NULL_HANDLE && pipeline_ != VK_NULL_HANDLE;
 }
 
 bool RendererBackend::build_geometry() {
@@ -1215,6 +1229,10 @@ bool RendererBackend::build_pipeline() {
       check_vk(vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1,
                                          &pipeline_info, nullptr, &pipeline_),
                "failed to create Vulkan graphics pipeline");
+  if (!created) {
+    vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
+    pipeline_layout_ = VK_NULL_HANDLE;
+  }
 
   vkDestroyShaderModule(device_, vertex_shader, nullptr);
   vkDestroyShaderModule(device_, fragment_shader, nullptr);
