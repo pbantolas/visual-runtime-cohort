@@ -10,6 +10,12 @@ The current hosts are a native macOS Metal window and a small CLI loop, but the 
 
 You can also recompile and reload the engine while the host is running with no restart required.
 
+### Architecture at a glance
+
+The diagram below shows the main pieces you will see in the codebase.
+
+![macOS harness and rendering engine architecture](docs/architecture-diagram.png)
+
 ## Prerequisites
 
 This project requires Xcode 15 or later. Install it from the Mac App Store if you haven't already. Everything else is available via Homebrew:
