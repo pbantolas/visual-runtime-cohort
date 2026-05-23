@@ -471,9 +471,7 @@ void RendererBackend::resize(uint32_t width, uint32_t height) {
 
 void RendererBackend::render_frame(float t) {
   (void)t;
-  if (render_width_ == 0 || render_height_ == 0 ||
-      swapchain_ == VK_NULL_HANDLE || command_buffers_.empty() ||
-      pipeline_ == VK_NULL_HANDLE) {
+  if (render_width_ == 0 || render_height_ == 0 || !frame_resources_ready()) {
     return;
   }
 
@@ -1230,8 +1228,7 @@ bool RendererBackend::build_pipeline() {
                                          &pipeline_info, nullptr, &pipeline_),
                "failed to create Vulkan graphics pipeline");
   if (!created) {
-    vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
-    pipeline_layout_ = VK_NULL_HANDLE;
+    destroy_pipeline();
   }
 
   vkDestroyShaderModule(device_, vertex_shader, nullptr);
