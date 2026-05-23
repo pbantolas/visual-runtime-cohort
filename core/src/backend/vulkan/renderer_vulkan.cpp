@@ -1,5 +1,7 @@
 #include "renderer.h"
 
+#include <glm/mat4x4.hpp>
+
 #include <vulkan/vulkan.h>
 #if defined(__APPLE__)
 #include <vulkan/vulkan_metal.h>
@@ -25,6 +27,15 @@ struct SwapchainSupport {
   VkSurfaceCapabilitiesKHR capabilities{};
   std::vector<VkSurfaceFormatKHR> formats;
   std::vector<VkPresentModeKHR> present_modes;
+};
+
+struct Vertex {
+  float position[2];
+  float color[3];
+};
+
+struct FrameUniforms {
+  glm::mat4 matrix{1.0f};
 };
 
 const char *vk_result_name(VkResult result) {
@@ -268,6 +279,25 @@ VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR &capabilities,
   return extent;
 }
 
+uint32_t find_memory_type(VkPhysicalDevice physical_device,
+                          uint32_t type_filter,
+                          VkMemoryPropertyFlags properties) {
+  VkPhysicalDeviceMemoryProperties memory_properties{};
+  vkGetPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
+
+  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
+    const bool type_matches = (type_filter & (1 << i)) != 0;
+    const bool properties_match =
+        (memory_properties.memoryTypes[i].propertyFlags & properties) ==
+        properties;
+    if (type_matches && properties_match) {
+      return i;
+    }
+  }
+
+  return invalid_queue_family;
+}
+
 } // namespace
 
 struct RendererBackend {
@@ -289,8 +319,18 @@ private:
   bool create_command_pool();
   bool create_command_buffers();
   bool create_sync_objects();
+  bool build_geometry();
+  bool build_uniforms();
+  bool create_descriptor_layout();
+  bool create_descriptor_pool();
+  bool create_descriptor_set();
+  bool create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                     VkMemoryPropertyFlags properties, VkBuffer &buffer,
+                     VkDeviceMemory &memory);
   bool record_clear_commands(uint32_t image_index);
+  void update_frame_uniforms();
   void destroy_swapchain();
+  void destroy_buffer(VkBuffer &buffer, VkDeviceMemory &memory);
 
   VkInstance instance_ = VK_NULL_HANDLE;
   VkSurfaceKHR surface_ = VK_NULL_HANDLE;
@@ -308,6 +348,14 @@ private:
   VkSemaphore image_available_ = VK_NULL_HANDLE;
   VkSemaphore render_finished_ = VK_NULL_HANDLE;
   VkFence frame_in_flight_ = VK_NULL_HANDLE;
+  VkBuffer vertex_buffer_ = VK_NULL_HANDLE;
+  VkDeviceMemory vertex_buffer_memory_ = VK_NULL_HANDLE;
+  uint32_t vertex_count_ = 0;
+  VkBuffer frame_uniform_buffer_ = VK_NULL_HANDLE;
+  VkDeviceMemory frame_uniform_buffer_memory_ = VK_NULL_HANDLE;
+  VkDescriptorSetLayout descriptor_set_layout_ = VK_NULL_HANDLE;
+  VkDescriptorPool descriptor_pool_ = VK_NULL_HANDLE;
+  VkDescriptorSet descriptor_set_ = VK_NULL_HANDLE;
   QueueFamilies queue_families_{};
   std::vector<const char *> device_extensions_{};
   uint32_t render_width_ = 0;
@@ -353,10 +401,15 @@ bool RendererBackend::init(SurfaceDescriptor *surface) {
 
   shutdown();
 
+  render_width_ = surface->width;
+  render_height_ = surface->height;
+
   if (!create_instance() || !create_surface(surface->native_handle) ||
       !pick_physical_device() || !create_device() || !create_swapchain() ||
       !create_image_views() || !create_command_pool() ||
-      !create_command_buffers() || !create_sync_objects()) {
+      !create_command_buffers() || !create_sync_objects() ||
+      !create_descriptor_layout() || !build_geometry() || !build_uniforms() ||
+      !create_descriptor_pool() || !create_descriptor_set()) {
     shutdown();
     return false;
   }
@@ -370,6 +423,7 @@ bool RendererBackend::init(SurfaceDescriptor *surface) {
 void RendererBackend::resize(uint32_t width, uint32_t height) {
   render_width_ = width;
   render_height_ = height;
+  update_frame_uniforms();
 }
 
 void RendererBackend::render_frame(float t) {
@@ -437,6 +491,18 @@ void RendererBackend::render_frame(float t) {
 void RendererBackend::shutdown() {
   if (device_ != VK_NULL_HANDLE) {
     vkDeviceWaitIdle(device_);
+    if (descriptor_pool_ != VK_NULL_HANDLE) {
+      vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
+      descriptor_pool_ = VK_NULL_HANDLE;
+      descriptor_set_ = VK_NULL_HANDLE;
+    }
+    if (descriptor_set_layout_ != VK_NULL_HANDLE) {
+      vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+      descriptor_set_layout_ = VK_NULL_HANDLE;
+    }
+    destroy_buffer(frame_uniform_buffer_, frame_uniform_buffer_memory_);
+    destroy_buffer(vertex_buffer_, vertex_buffer_memory_);
+    vertex_count_ = 0;
     destroy_swapchain();
     if (frame_in_flight_ != VK_NULL_HANDLE) {
       vkDestroyFence(device_, frame_in_flight_, nullptr);
@@ -862,6 +928,148 @@ bool RendererBackend::create_sync_objects() {
              "failed to create Vulkan frame fence");
 }
 
+bool RendererBackend::build_geometry() {
+  static constexpr Vertex vertices[] = {
+      {{0.0f, 0.65f}, {1.0f, 0.0f, 0.0f}},
+      {{-0.7f, -0.55f}, {0.0f, 1.0f, 0.0f}},
+      {{0.7f, -0.55f}, {0.0f, 0.0f, 1.0f}},
+  };
+
+  const VkDeviceSize buffer_size = sizeof(vertices);
+  if (!create_buffer(buffer_size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     vertex_buffer_, vertex_buffer_memory_)) {
+    return false;
+  }
+
+  void *data = nullptr;
+  if (!check_vk(
+          vkMapMemory(device_, vertex_buffer_memory_, 0, buffer_size, 0, &data),
+          "failed to map Vulkan vertex buffer")) {
+    return false;
+  }
+  std::memcpy(data, vertices, sizeof(vertices));
+  vkUnmapMemory(device_, vertex_buffer_memory_);
+
+  vertex_count_ = static_cast<uint32_t>(sizeof(vertices) / sizeof(vertices[0]));
+  return true;
+}
+
+bool RendererBackend::build_uniforms() {
+  if (!create_buffer(sizeof(FrameUniforms), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                     frame_uniform_buffer_, frame_uniform_buffer_memory_)) {
+    return false;
+  }
+
+  update_frame_uniforms();
+  return true;
+}
+
+bool RendererBackend::create_descriptor_layout() {
+  VkDescriptorSetLayoutBinding frame_uniform_binding{};
+  frame_uniform_binding.binding = 0;
+  frame_uniform_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  frame_uniform_binding.descriptorCount = 1;
+  frame_uniform_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+  VkDescriptorSetLayoutCreateInfo create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  create_info.bindingCount = 1;
+  create_info.pBindings = &frame_uniform_binding;
+
+  return check_vk(vkCreateDescriptorSetLayout(device_, &create_info, nullptr,
+                                              &descriptor_set_layout_),
+                  "failed to create Vulkan descriptor set layout");
+}
+
+bool RendererBackend::create_descriptor_pool() {
+  VkDescriptorPoolSize pool_size{};
+  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_size.descriptorCount = 1;
+
+  VkDescriptorPoolCreateInfo create_info{};
+  create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  create_info.poolSizeCount = 1;
+  create_info.pPoolSizes = &pool_size;
+  create_info.maxSets = 1;
+
+  return check_vk(
+      vkCreateDescriptorPool(device_, &create_info, nullptr, &descriptor_pool_),
+      "failed to create Vulkan descriptor pool");
+}
+
+bool RendererBackend::create_descriptor_set() {
+  VkDescriptorSetAllocateInfo allocate_info{};
+  allocate_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  allocate_info.descriptorPool = descriptor_pool_;
+  allocate_info.descriptorSetCount = 1;
+  allocate_info.pSetLayouts = &descriptor_set_layout_;
+
+  if (!check_vk(
+          vkAllocateDescriptorSets(device_, &allocate_info, &descriptor_set_),
+          "failed to allocate Vulkan descriptor set")) {
+    return false;
+  }
+
+  VkDescriptorBufferInfo buffer_info{};
+  buffer_info.buffer = frame_uniform_buffer_;
+  buffer_info.offset = 0;
+  buffer_info.range = sizeof(FrameUniforms);
+
+  VkWriteDescriptorSet descriptor_write{};
+  descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  descriptor_write.dstSet = descriptor_set_;
+  descriptor_write.dstBinding = 0;
+  descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  descriptor_write.descriptorCount = 1;
+  descriptor_write.pBufferInfo = &buffer_info;
+
+  vkUpdateDescriptorSets(device_, 1, &descriptor_write, 0, nullptr);
+  return true;
+}
+
+bool RendererBackend::create_buffer(VkDeviceSize size, VkBufferUsageFlags usage,
+                                    VkMemoryPropertyFlags properties,
+                                    VkBuffer &buffer, VkDeviceMemory &memory) {
+  VkBufferCreateInfo buffer_info{};
+  buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+  buffer_info.size = size;
+  buffer_info.usage = usage;
+  buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+  if (!check_vk(vkCreateBuffer(device_, &buffer_info, nullptr, &buffer),
+                "failed to create Vulkan buffer")) {
+    return false;
+  }
+
+  VkMemoryRequirements memory_requirements{};
+  vkGetBufferMemoryRequirements(device_, buffer, &memory_requirements);
+
+  const uint32_t memory_type = find_memory_type(
+      physical_device_, memory_requirements.memoryTypeBits, properties);
+  if (memory_type == invalid_queue_family) {
+    std::fprintf(stderr,
+                 "[renderer] failed to find suitable Vulkan buffer memory\n");
+    return false;
+  }
+
+  VkMemoryAllocateInfo allocate_info{};
+  allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+  allocate_info.allocationSize = memory_requirements.size;
+  allocate_info.memoryTypeIndex = memory_type;
+
+  if (!check_vk(vkAllocateMemory(device_, &allocate_info, nullptr, &memory),
+                "failed to allocate Vulkan buffer memory")) {
+    return false;
+  }
+
+  return check_vk(vkBindBufferMemory(device_, buffer, memory, 0),
+                  "failed to bind Vulkan buffer memory");
+}
+
 bool RendererBackend::record_clear_commands(uint32_t image_index) {
   VkCommandBuffer command_buffer = command_buffers_[image_index];
 
@@ -938,6 +1146,34 @@ bool RendererBackend::record_clear_commands(uint32_t image_index) {
                   "failed to record Vulkan command buffer");
 }
 
+void RendererBackend::update_frame_uniforms() {
+  if (frame_uniform_buffer_memory_ == VK_NULL_HANDLE) {
+    return;
+  }
+
+  FrameUniforms uniforms{};
+
+  if (render_width_ > 0 && render_height_ > 0) {
+    const float aspect =
+        static_cast<float>(render_width_) / static_cast<float>(render_height_);
+
+    if (aspect >= 1.0f) {
+      uniforms.matrix[0][0] = 1.0f / aspect;
+    } else {
+      uniforms.matrix[1][1] = aspect;
+    }
+  }
+
+  void *data = nullptr;
+  if (!check_vk(vkMapMemory(device_, frame_uniform_buffer_memory_, 0,
+                            sizeof(FrameUniforms), 0, &data),
+                "failed to map Vulkan frame uniform buffer")) {
+    return;
+  }
+  std::memcpy(data, &uniforms, sizeof(uniforms));
+  vkUnmapMemory(device_, frame_uniform_buffer_memory_);
+}
+
 void RendererBackend::destroy_swapchain() {
   if (command_pool_ != VK_NULL_HANDLE && !command_buffers_.empty()) {
     vkFreeCommandBuffers(device_, command_pool_,
@@ -956,4 +1192,15 @@ void RendererBackend::destroy_swapchain() {
   }
   swapchain_format_ = VK_FORMAT_UNDEFINED;
   swapchain_extent_ = {};
+}
+
+void RendererBackend::destroy_buffer(VkBuffer &buffer, VkDeviceMemory &memory) {
+  if (buffer != VK_NULL_HANDLE) {
+    vkDestroyBuffer(device_, buffer, nullptr);
+    buffer = VK_NULL_HANDLE;
+  }
+  if (memory != VK_NULL_HANDLE) {
+    vkFreeMemory(device_, memory, nullptr);
+    memory = VK_NULL_HANDLE;
+  }
 }
