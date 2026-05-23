@@ -32,6 +32,55 @@ else()
     target_link_libraries(engine PRIVATE "${ENGINE_VULKAN_LIBRARY}")
 endif()
 
+find_program(GLSLANG_VALIDATOR_EXECUTABLE
+    NAMES glslangValidator
+    HINTS
+        "$ENV{VULKAN_SDK}/bin"
+        /opt/homebrew/bin
+        /usr/local/bin
+)
+
+if(NOT GLSLANG_VALIDATOR_EXECUTABLE)
+    message(FATAL_ERROR "ENGINE_BACKEND=Vulkan requires glslangValidator to compile GLSL shaders. Install a Vulkan SDK, or on macOS run: brew install glslang")
+endif()
+
+set(ENGINE_VULKAN_SHADER_DIR "${CMAKE_SOURCE_DIR}/core/shaders/vulkan")
+set(ENGINE_VULKAN_SPIRV_DIR "${CMAKE_BINARY_DIR}/shaders/vulkan")
+set(ENGINE_VULKAN_VERTEX_SHADER "${ENGINE_VULKAN_SHADER_DIR}/basic.vert.glsl")
+set(ENGINE_VULKAN_FRAGMENT_SHADER "${ENGINE_VULKAN_SHADER_DIR}/basic.frag.glsl")
+set(ENGINE_VULKAN_VERTEX_SPV "${ENGINE_VULKAN_SPIRV_DIR}/basic.vert.spv")
+set(ENGINE_VULKAN_FRAGMENT_SPV "${ENGINE_VULKAN_SPIRV_DIR}/basic.frag.spv")
+
+add_custom_command(
+    OUTPUT "${ENGINE_VULKAN_VERTEX_SPV}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${ENGINE_VULKAN_SPIRV_DIR}"
+    COMMAND "${GLSLANG_VALIDATOR_EXECUTABLE}" -V "${ENGINE_VULKAN_VERTEX_SHADER}" -o "${ENGINE_VULKAN_VERTEX_SPV}"
+    DEPENDS "${ENGINE_VULKAN_VERTEX_SHADER}"
+    COMMENT "Compiling Vulkan vertex shader ${ENGINE_VULKAN_VERTEX_SHADER}"
+    VERBATIM
+)
+
+add_custom_command(
+    OUTPUT "${ENGINE_VULKAN_FRAGMENT_SPV}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${ENGINE_VULKAN_SPIRV_DIR}"
+    COMMAND "${GLSLANG_VALIDATOR_EXECUTABLE}" -V "${ENGINE_VULKAN_FRAGMENT_SHADER}" -o "${ENGINE_VULKAN_FRAGMENT_SPV}"
+    DEPENDS "${ENGINE_VULKAN_FRAGMENT_SHADER}"
+    COMMENT "Compiling Vulkan fragment shader ${ENGINE_VULKAN_FRAGMENT_SHADER}"
+    VERBATIM
+)
+
+add_custom_target(engine_vulkan_shaders
+    DEPENDS
+        "${ENGINE_VULKAN_VERTEX_SPV}"
+        "${ENGINE_VULKAN_FRAGMENT_SPV}"
+)
+add_dependencies(engine engine_vulkan_shaders)
+
+target_compile_definitions(engine PRIVATE
+    ENGINE_VULKAN_VERTEX_SPV_PATH="${ENGINE_VULKAN_VERTEX_SPV}"
+    ENGINE_VULKAN_FRAGMENT_SPV_PATH="${ENGINE_VULKAN_FRAGMENT_SPV}"
+)
+
 if(APPLE)
     set(MOLTENVK_ROOT "" CACHE PATH "Optional MoltenVK install root for macOS Vulkan smoke tests")
     find_file(ENGINE_MOLTENVK_ICD_JSON
