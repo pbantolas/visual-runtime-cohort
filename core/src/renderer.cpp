@@ -32,12 +32,13 @@ void print_error(const char *context, NS::Error *error) {
 } // namespace
 
 bool Renderer::init(SurfaceDescriptor *surface) {
-  if (!surface || !surface->metal_layer)
+  if (!surface || surface->kind != SurfaceKind::MacOSMetalLayer ||
+      !surface->native_handle)
     return false;
 
   shutdown();
 
-  layer_ = reinterpret_cast<CA::MetalLayer *>(surface->metal_layer);
+  layer_ = reinterpret_cast<CA::MetalLayer *>(surface->native_handle);
   layer_->retain();
 
   device_ = MTL::CreateSystemDefaultDevice();

@@ -20,11 +20,12 @@ bool EngineHost::valid() const {
     return engineModule_ && static_cast<bool>(*engineModule_);
 }
 
-void EngineHost::attachSurface(void* metal_layer, uint32_t width, uint32_t height) {
+void EngineHost::attachSurface(void* native_surface, uint32_t width, uint32_t height) {
     if (!engineModule_) return;
 
     SurfaceDescriptor surface{
-        metal_layer,
+        SurfaceKind::MacOSMetalLayer,
+        native_surface,
         width,
         height,
     };

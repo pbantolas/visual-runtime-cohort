@@ -21,7 +21,7 @@ public:
     EngineHost& operator=(EngineHost&&) noexcept = default;
 
     bool valid() const;
-    void attachSurface(void* metal_layer, uint32_t width, uint32_t height);
+    void attachSurface(void* native_surface, uint32_t width, uint32_t height);
     void resize(uint32_t width, uint32_t height);
     void tick(float dt);
     bool reload();

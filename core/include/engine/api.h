@@ -6,12 +6,18 @@ struct EngineState {
     float    elapsed_time;
 };
 
+enum class SurfaceKind : uint32_t {
+    None = 0,
+    MacOSMetalLayer = 1,
+};
+
 // Describes the native rendering surface passed to the engine on init.
-// metal_layer is a CAMetalLayer* on Apple platforms; null for headless hosts.
+// native_handle is interpreted according to kind; null for headless hosts.
 struct SurfaceDescriptor {
-    void*    metal_layer;
-    uint32_t width;
-    uint32_t height;
+    SurfaceKind kind;
+    void*       native_handle;
+    uint32_t    width;
+    uint32_t    height;
 };
 
 constexpr uint32_t ENGINE_API_VERSION = 1;
