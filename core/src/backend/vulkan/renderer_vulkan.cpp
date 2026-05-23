@@ -346,6 +346,7 @@ private:
   bool create_sync_objects();
   bool create_frame_resources();
   bool frame_resources_ready() const;
+  void recreate_frame_resources();
   bool build_geometry();
   bool build_uniforms();
   bool create_descriptor_layout();
@@ -459,12 +460,10 @@ void RendererBackend::resize(uint32_t width, uint32_t height) {
 
   if (!frame_resources_ready() || swapchain_extent_.width != width ||
       swapchain_extent_.height != height) {
-    vkDeviceWaitIdle(device_);
-    destroy_pipeline();
-    destroy_swapchain();
-    if (!create_frame_resources()) {
-      std::fprintf(stderr,
-                   "[renderer] failed to recreate Vulkan frame resources\n");
+    if (swapchain_ == VK_NULL_HANDLE) {
+      create_frame_resources();
+    } else {
+      recreate_frame_resources();
     }
   }
 }
@@ -485,10 +484,16 @@ void RendererBackend::render_frame(float t) {
   VkResult acquire_result =
       vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX, image_available_,
                             VK_NULL_HANDLE, &image_index);
+  if (acquire_result == VK_ERROR_OUT_OF_DATE_KHR) {
+    recreate_frame_resources();
+    return;
+  }
   if (acquire_result != VK_SUCCESS && acquire_result != VK_SUBOPTIMAL_KHR) {
     print_vk_error("failed to acquire Vulkan swapchain image", acquire_result);
     return;
   }
+  const bool should_recreate_after_present =
+      acquire_result == VK_SUBOPTIMAL_KHR;
 
   if (!record_clear_commands(image_index)) {
     return;
@@ -525,7 +530,10 @@ void RendererBackend::render_frame(float t) {
   present_info.pImageIndices = &image_index;
 
   VkResult present_result = vkQueuePresentKHR(present_queue_, &present_info);
-  if (present_result != VK_SUCCESS && present_result != VK_SUBOPTIMAL_KHR) {
+  if (present_result == VK_ERROR_OUT_OF_DATE_KHR ||
+      present_result == VK_SUBOPTIMAL_KHR || should_recreate_after_present) {
+    recreate_frame_resources();
+  } else if (present_result != VK_SUCCESS) {
     print_vk_error("failed to present Vulkan swapchain image", present_result);
   }
 }
@@ -987,6 +995,25 @@ bool RendererBackend::frame_resources_ready() const {
          swapchain_image_views_.size() == swapchain_images_.size() &&
          command_buffers_.size() == swapchain_images_.size() &&
          pipeline_layout_ != VK_NULL_HANDLE && pipeline_ != VK_NULL_HANDLE;
+}
+
+void RendererBackend::recreate_frame_resources() {
+  if (render_width_ == 0 || render_height_ == 0) {
+    return;
+  }
+
+  if (device_ != VK_NULL_HANDLE) {
+    vkDeviceWaitIdle(device_);
+  }
+  destroy_pipeline();
+  destroy_swapchain();
+
+  if (create_frame_resources()) {
+    return;
+  }
+
+  std::fprintf(stderr,
+               "[renderer] failed to recreate Vulkan frame resources\n");
 }
 
 bool RendererBackend::build_geometry() {
