@@ -806,7 +806,7 @@ bool RendererBackend::record_clear_commands(uint32_t image_index) {
   color_attachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
   color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
   color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-  color_attachment.clearValue.color = {{0.02f, 0.10f, 0.18f, 1.0f}};
+  color_attachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
 
   VkRenderingInfo rendering_info{};
   rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
