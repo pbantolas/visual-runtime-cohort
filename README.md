@@ -30,7 +30,7 @@ If you want to modify the macOS project itself, you may also need `tuist` (`brew
 
 ### Linux
 
-Linux students should use the Vulkan backend and the minimal GLFW harness. Follow the dependency and build instructions in [`host/glfw-minimal/README.md`](host/glfw-minimal/README.md).
+Linux users should use the Vulkan backend and the minimal GLFW harness. Follow the dependency and build instructions in [`host/glfw-minimal/README.md`](host/glfw-minimal/README.md).
 
 ## Getting Started
 
