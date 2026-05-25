@@ -26,6 +26,14 @@ compile-commands backend=backend:
 run backend=backend: (build backend)
     ./{{build_dir}}/host/cli/cli
 
+# build the minimal Linux GLFW harness
+glfw-build backend="Vulkan": (configure backend)
+    cmake --build {{build_dir}} --target glfw_minimal
+
+# build and run the minimal Linux GLFW harness
+glfw-run backend="Vulkan": (glfw-build backend)
+    ./{{build_dir}}/host/glfw-minimal/glfw_minimal
+
 # build the engine dylib — run in a second terminal to trigger hot reload in a running host
 engine backend=backend: (configure backend)
     cmake --build {{build_dir}} --target engine
