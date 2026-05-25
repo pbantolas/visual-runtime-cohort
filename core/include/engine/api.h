@@ -20,11 +20,12 @@ struct SurfaceDescriptor {
     uint32_t    height;
 };
 
-constexpr uint32_t ENGINE_API_VERSION = 2;
+constexpr uint32_t ENGINE_API_VERSION = 3;
 
 struct EngineAPI {
     uint32_t abi_version;
     uint32_t struct_size;
+    const char* backend_name;
 
     void (*init)(EngineState*, SurfaceDescriptor*);
     void (*resize)(EngineState*, uint32_t, uint32_t);

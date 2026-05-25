@@ -35,6 +35,7 @@ const EngineAPI* engine_get_api() {
     static const EngineAPI api{
         ENGINE_API_VERSION,
         sizeof(EngineAPI),
+        ENGINE_BACKEND_NAME,
         engine_init_impl,
         engine_resize_impl,
         engine_update_impl,

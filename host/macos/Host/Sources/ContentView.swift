@@ -14,12 +14,15 @@ public struct ContentView: View {
 
             WindowDragView(engineSession: engineSession)
 
-            Text("q to close, r to reload")
-                .font(.body.monospaced().weight(.medium))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 1)
-                .padding(12)
-                .allowsHitTesting(false)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("q to close, r to reload")
+                Text("backend: \(engineSession.backendName)")
+            }
+            .font(.body.monospaced().weight(.medium))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.8), radius: 2, x: 0, y: 1)
+            .padding(12)
+            .allowsHitTesting(false)
         }
         .frame(minWidth: 800, minHeight: 600)
     }

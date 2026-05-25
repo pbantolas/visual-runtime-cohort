@@ -2,6 +2,9 @@ import QuartzCore
 
 public final class EngineSession {
     private var engineHost: EngineHost
+    public var backendName: String {
+        String(engineHost.backendName())
+    }
 
     public init?(libPath: String) {
         let engineHost = EngineHost(std.string(libPath))

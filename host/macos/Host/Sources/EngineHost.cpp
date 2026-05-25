@@ -20,6 +20,12 @@ bool EngineHost::valid() const {
     return engineModule_ && static_cast<bool>(*engineModule_);
 }
 
+std::string EngineHost::backendName() const {
+    if (!engineModule_) return "Unknown";
+
+    return engineModule_->backendName();
+}
+
 void EngineHost::attachSurface(void* native_surface, uint32_t width, uint32_t height) {
     if (!engineModule_) return;
 

@@ -25,6 +25,7 @@ public:
     void resize(uint32_t width, uint32_t height);
     void tick(float dt);
     bool reload();
+    std::string backendName() const;
 
 private:
     std::unique_ptr<EngineModule, EngineModuleDeleter> engineModule_;

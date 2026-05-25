@@ -12,6 +12,10 @@ target_include_directories(engine PRIVATE
     src
 )
 
+target_compile_definitions(engine PRIVATE
+    ENGINE_BACKEND_NAME="${ENGINE_BACKEND}"
+)
+
 set_target_properties(engine PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
 )
