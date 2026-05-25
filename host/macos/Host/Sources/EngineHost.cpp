@@ -31,7 +31,8 @@ void EngineHost::attachSurface(void* native_surface, uint32_t width, uint32_t he
 
     SurfaceDescriptor surface{
         SurfaceKind::MacOSMetalLayer,
-        native_surface,
+        nullptr,
+        reinterpret_cast<uintptr_t>(native_surface),
         width,
         height,
     };

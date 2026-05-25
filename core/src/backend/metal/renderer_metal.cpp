@@ -92,12 +92,12 @@ void Renderer::shutdown() {
 
 bool RendererBackend::init(SurfaceDescriptor *surface) {
   if (!surface || surface->kind != SurfaceKind::MacOSMetalLayer ||
-      !surface->native_handle)
+      surface->surface_handle == 0)
     return false;
 
   shutdown();
 
-  layer_ = reinterpret_cast<CA::MetalLayer *>(surface->native_handle);
+  layer_ = reinterpret_cast<CA::MetalLayer *>(surface->surface_handle);
   layer_->retain();
 
   device_ = MTL::CreateSystemDefaultDevice();
@@ -134,6 +134,10 @@ bool RendererBackend::init(SurfaceDescriptor *surface) {
 }
 
 void RendererBackend::resize(uint32_t width, uint32_t height) {
+  if (render_width_ == width && render_height_ == height) {
+    return;
+  }
+
   render_width_ = width;
   render_height_ = height;
   update_frame_uniforms();

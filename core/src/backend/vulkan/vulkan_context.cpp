@@ -5,6 +5,10 @@
 #if defined(__APPLE__)
 #include <vulkan/vulkan_metal.h>
 #endif
+#if defined(__linux__)
+#include <xcb/xcb.h>
+#include <vulkan/vulkan_xcb.h>
+#endif
 
 #include <cstdio>
 #include <utility>
@@ -55,14 +59,18 @@ bool queue_families_complete(const QueueFamilies &families) {
 }
 
 bool VulkanContext::init(SurfaceDescriptor *surface) {
-  if (!surface || surface->kind != SurfaceKind::MacOSMetalLayer ||
-      !surface->native_handle) {
+  if (!surface || surface->kind == SurfaceKind::None ||
+      surface->surface_handle == 0) {
+    return false;
+  }
+  if (surface->kind == SurfaceKind::LinuxXcbWindow &&
+      !surface->display_handle) {
     return false;
   }
 
   shutdown();
 
-  if (!create_instance() || !create_surface(surface->native_handle) ||
+  if (!create_instance(surface->kind) || !create_surface(*surface) ||
       !pick_physical_device() || !create_device()) {
     shutdown();
     return false;
@@ -93,7 +101,7 @@ void VulkanContext::shutdown() {
   }
 }
 
-bool VulkanContext::create_instance() {
+bool VulkanContext::create_instance(SurfaceKind surface_kind) {
   std::vector<VkExtensionProperties> available_extensions;
   if (!enumerate_instance_extensions(available_extensions)) {
     return false;
@@ -101,7 +109,9 @@ bool VulkanContext::create_instance() {
 
   std::vector<const char *> extensions{VK_KHR_SURFACE_EXTENSION_NAME};
 #if defined(__APPLE__)
-  extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+  if (surface_kind == SurfaceKind::MacOSMetalLayer) {
+    extensions.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+  }
 #if defined(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME)
   bool enable_portability_enumeration = extension_available(
       available_extensions, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
@@ -113,6 +123,11 @@ bool VulkanContext::create_instance() {
 #endif
 #else
   bool enable_portability_enumeration = false;
+#endif
+#if defined(__linux__)
+  if (surface_kind == SurfaceKind::LinuxXcbWindow) {
+    extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+  }
 #endif
 
   if (!required_extensions_available(available_extensions, extensions.data(),
@@ -142,29 +157,51 @@ bool VulkanContext::create_instance() {
                   "failed to create Vulkan instance");
 }
 
-bool VulkanContext::create_surface(void *native_handle) {
+bool VulkanContext::create_surface(const SurfaceDescriptor &surface) {
 #if defined(__APPLE__)
-  auto create_metal_surface = reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
-      vkGetInstanceProcAddr(instance_, "vkCreateMetalSurfaceEXT"));
-  if (!create_metal_surface) {
-    std::fprintf(stderr, "[renderer] failed to load vkCreateMetalSurfaceEXT\n");
-    return false;
+  if (surface.kind == SurfaceKind::MacOSMetalLayer) {
+    auto create_metal_surface = reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
+        vkGetInstanceProcAddr(instance_, "vkCreateMetalSurfaceEXT"));
+    if (!create_metal_surface) {
+      std::fprintf(stderr, "[renderer] failed to load vkCreateMetalSurfaceEXT\n");
+      return false;
+    }
+
+    VkMetalSurfaceCreateInfoEXT create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
+    create_info.pLayer = reinterpret_cast<void *>(surface.surface_handle);
+
+    return check_vk(
+        create_metal_surface(instance_, &create_info, nullptr, &surface_),
+        "failed to create Vulkan Metal surface");
   }
+#endif
+#if defined(__linux__)
+  if (surface.kind == SurfaceKind::LinuxXcbWindow) {
+    auto create_xcb_surface = reinterpret_cast<PFN_vkCreateXcbSurfaceKHR>(
+        vkGetInstanceProcAddr(instance_, "vkCreateXcbSurfaceKHR"));
+    if (!create_xcb_surface) {
+      std::fprintf(stderr, "[renderer] failed to load vkCreateXcbSurfaceKHR\n");
+      return false;
+    }
 
-  VkMetalSurfaceCreateInfoEXT create_info{};
-  create_info.sType = VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT;
-  create_info.pLayer = native_handle;
+    VkXcbSurfaceCreateInfoKHR create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
+    create_info.connection =
+        reinterpret_cast<xcb_connection_t *>(surface.display_handle);
+    create_info.window = static_cast<xcb_window_t>(surface.surface_handle);
 
-  return check_vk(
-      create_metal_surface(instance_, &create_info, nullptr, &surface_),
-      "failed to create Vulkan Metal surface");
+    return check_vk(
+        create_xcb_surface(instance_, &create_info, nullptr, &surface_),
+        "failed to create Vulkan XCB surface");
+  }
 #else
-  (void)native_handle;
+  (void)surface;
+#endif
   std::fprintf(stderr,
                "[renderer] Vulkan surface creation is not implemented for this "
-               "platform yet\n");
+               "surface kind on this platform\n");
   return false;
-#endif
 }
 
 bool VulkanContext::pick_physical_device() {

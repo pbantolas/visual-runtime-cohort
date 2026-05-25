@@ -126,11 +126,6 @@ void Renderer::shutdown() {
 }
 
 bool RendererBackend::init(SurfaceDescriptor *surface) {
-  if (!surface || surface->kind != SurfaceKind::MacOSMetalLayer ||
-      !surface->native_handle) {
-    return false;
-  }
-
   shutdown();
 
   if (!context_.init(surface) || !create_command_pool() ||
@@ -147,6 +142,10 @@ bool RendererBackend::init(SurfaceDescriptor *surface) {
 }
 
 void RendererBackend::resize(uint32_t width, uint32_t height) {
+  if (render_width_ == width && render_height_ == height) {
+    return;
+  }
+
   render_width_ = width;
   render_height_ = height;
   update_frame_uniforms();

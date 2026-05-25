@@ -31,8 +31,8 @@ public:
   }
 
 private:
-  bool create_instance();
-  bool create_surface(void *native_handle);
+  bool create_instance(SurfaceKind surface_kind);
+  bool create_surface(const SurfaceDescriptor &surface);
   bool pick_physical_device();
   bool physical_device_suitable(VkPhysicalDevice physical_device,
                                 QueueFamilies &families,

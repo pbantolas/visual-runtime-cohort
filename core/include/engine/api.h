@@ -9,18 +9,21 @@ struct EngineState {
 enum class SurfaceKind : uint32_t {
     None = 0,
     MacOSMetalLayer = 1,
+    LinuxXcbWindow = 2,
+    LinuxWaylandSurface = 3,
 };
 
 // Describes the native rendering surface passed to the engine on init.
-// native_handle is interpreted according to kind; null for headless hosts.
+// Handle fields are interpreted according to kind; null/zero for headless hosts.
 struct SurfaceDescriptor {
     SurfaceKind kind;
-    void*       native_handle;
+    void*       display_handle;
+    uintptr_t   surface_handle;
     uint32_t    width;
     uint32_t    height;
 };
 
-constexpr uint32_t ENGINE_API_VERSION = 3;
+constexpr uint32_t ENGINE_API_VERSION = 4;
 
 struct EngineAPI {
     uint32_t abi_version;
