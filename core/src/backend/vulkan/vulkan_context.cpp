@@ -6,7 +6,9 @@
 #include <vulkan/vulkan_metal.h>
 #endif
 #if defined(__linux__)
+#include <wayland-client.h>
 #include <xcb/xcb.h>
+#include <vulkan/vulkan_wayland.h>
 #include <vulkan/vulkan_xcb.h>
 #endif
 
@@ -63,7 +65,8 @@ bool VulkanContext::init(SurfaceDescriptor *surface) {
       surface->surface_handle == 0) {
     return false;
   }
-  if (surface->kind == SurfaceKind::LinuxXcbWindow &&
+  if ((surface->kind == SurfaceKind::LinuxXcbWindow ||
+       surface->kind == SurfaceKind::LinuxWaylandSurface) &&
       !surface->display_handle) {
     return false;
   }
@@ -127,6 +130,9 @@ bool VulkanContext::create_instance(SurfaceKind surface_kind) {
 #if defined(__linux__)
   if (surface_kind == SurfaceKind::LinuxXcbWindow) {
     extensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+  }
+  if (surface_kind == SurfaceKind::LinuxWaylandSurface) {
+    extensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
   }
 #endif
 
@@ -194,6 +200,27 @@ bool VulkanContext::create_surface(const SurfaceDescriptor &surface) {
     return check_vk(
         create_xcb_surface(instance_, &create_info, nullptr, &surface_),
         "failed to create Vulkan XCB surface");
+  }
+  if (surface.kind == SurfaceKind::LinuxWaylandSurface) {
+    auto create_wayland_surface =
+        reinterpret_cast<PFN_vkCreateWaylandSurfaceKHR>(
+            vkGetInstanceProcAddr(instance_, "vkCreateWaylandSurfaceKHR"));
+    if (!create_wayland_surface) {
+      std::fprintf(stderr,
+                   "[renderer] failed to load vkCreateWaylandSurfaceKHR\n");
+      return false;
+    }
+
+    VkWaylandSurfaceCreateInfoKHR create_info{};
+    create_info.sType = VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR;
+    create_info.display =
+        reinterpret_cast<wl_display *>(surface.display_handle);
+    create_info.surface =
+        reinterpret_cast<wl_surface *>(surface.surface_handle);
+
+    return check_vk(
+        create_wayland_surface(instance_, &create_info, nullptr, &surface_),
+        "failed to create Vulkan Wayland surface");
   }
 #else
   (void)surface;

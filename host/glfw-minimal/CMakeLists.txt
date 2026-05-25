@@ -20,18 +20,76 @@ target_compile_definitions(glfw_minimal PRIVATE
 )
 
 if(UNIX AND NOT APPLE)
+    include(CheckCXXSourceCompiles)
+
+    option(ENGINE_GLFW_MINIMAL_ENABLE_XCB "Build glfw_minimal with Linux XCB native surface support" ON)
+    option(ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND "Build glfw_minimal with Linux Wayland native surface support" ON)
+
     find_package(X11 QUIET)
     find_path(ENGINE_XCB_INCLUDE_DIR NAMES xcb/xcb.h)
     find_library(ENGINE_XCB_LIBRARY NAMES xcb)
     find_library(ENGINE_X11_XCB_LIBRARY NAMES X11-xcb)
+    find_path(ENGINE_WAYLAND_CLIENT_INCLUDE_DIR NAMES wayland-client.h)
+    find_library(ENGINE_WAYLAND_CLIENT_LIBRARY NAMES wayland-client)
 
-    if(NOT X11_FOUND OR NOT ENGINE_XCB_INCLUDE_DIR OR NOT ENGINE_XCB_LIBRARY OR NOT ENGINE_X11_XCB_LIBRARY)
+    if(ENGINE_GLFW_MINIMAL_ENABLE_XCB AND (NOT X11_FOUND OR NOT ENGINE_XCB_INCLUDE_DIR OR NOT ENGINE_XCB_LIBRARY OR NOT ENGINE_X11_XCB_LIBRARY))
         message(FATAL_ERROR "glfw_minimal on Linux requires X11, X11-xcb, and xcb development packages")
     endif()
+    if(ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND AND (NOT ENGINE_WAYLAND_CLIENT_INCLUDE_DIR OR NOT ENGINE_WAYLAND_CLIENT_LIBRARY))
+        message(FATAL_ERROR "glfw_minimal on Linux requires wayland-client development packages")
+    endif()
 
-    target_compile_definitions(glfw_minimal PRIVATE GLFW_EXPOSE_NATIVE_X11)
-    target_include_directories(glfw_minimal PRIVATE ${X11_INCLUDE_DIR} ${ENGINE_XCB_INCLUDE_DIR})
-    target_link_libraries(glfw_minimal PRIVATE ${ENGINE_X11_XCB_LIBRARY} ${ENGINE_XCB_LIBRARY})
+    if(ENGINE_GLFW_MINIMAL_ENABLE_XCB OR ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND)
+        set(CMAKE_REQUIRED_LIBRARIES glfw)
+        check_cxx_source_compiles("
+            #include <GLFW/glfw3.h>
+            int main() { return glfwGetPlatform() == GLFW_PLATFORM_X11 ? 0 : 0; }
+        " ENGINE_GLFW_HAS_PLATFORM_API)
+        if(ENGINE_GLFW_MINIMAL_ENABLE_XCB)
+            check_cxx_source_compiles("
+                #define GLFW_EXPOSE_NATIVE_X11
+                #include <GLFW/glfw3.h>
+                #include <GLFW/glfw3native.h>
+                int main() { return glfwGetX11Display() ? 0 : 0; }
+            " ENGINE_GLFW_HAS_NATIVE_X11)
+        endif()
+        if(ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND)
+            check_cxx_source_compiles("
+                #define GLFW_EXPOSE_NATIVE_WAYLAND
+                #include <GLFW/glfw3.h>
+                #include <GLFW/glfw3native.h>
+                int main() { return glfwGetWaylandDisplay() ? 0 : 0; }
+            " ENGINE_GLFW_HAS_NATIVE_WAYLAND)
+        endif()
+        unset(CMAKE_REQUIRED_LIBRARIES)
+    endif()
+
+    if(ENGINE_GLFW_MINIMAL_ENABLE_XCB AND NOT ENGINE_GLFW_HAS_NATIVE_X11)
+        message(FATAL_ERROR "glfw_minimal requires GLFW with native X11 support; disable ENGINE_GLFW_MINIMAL_ENABLE_XCB only for non-XCB builds")
+    endif()
+    if(ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND AND NOT ENGINE_GLFW_HAS_NATIVE_WAYLAND)
+        message(FATAL_ERROR "glfw_minimal requires GLFW with native Wayland support; disable ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND only for XCB-only verification")
+    endif()
+    if(NOT ENGINE_GLFW_MINIMAL_ENABLE_XCB AND NOT ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND)
+        message(FATAL_ERROR "glfw_minimal requires at least one Linux native surface path")
+    endif()
+
+    if(ENGINE_GLFW_MINIMAL_ENABLE_XCB)
+        target_compile_definitions(glfw_minimal PRIVATE ENGINE_GLFW_HAS_NATIVE_X11 GLFW_EXPOSE_NATIVE_X11)
+        target_include_directories(glfw_minimal PRIVATE ${X11_INCLUDE_DIR})
+        target_include_directories(glfw_minimal PRIVATE ${ENGINE_XCB_INCLUDE_DIR})
+        target_link_libraries(glfw_minimal PRIVATE ${ENGINE_X11_XCB_LIBRARY} ${ENGINE_XCB_LIBRARY})
+    endif()
+
+    if(ENGINE_GLFW_MINIMAL_ENABLE_WAYLAND)
+        target_compile_definitions(glfw_minimal PRIVATE ENGINE_GLFW_HAS_NATIVE_WAYLAND GLFW_EXPOSE_NATIVE_WAYLAND)
+        target_include_directories(glfw_minimal PRIVATE ${ENGINE_WAYLAND_CLIENT_INCLUDE_DIR})
+        target_link_libraries(glfw_minimal PRIVATE ${ENGINE_WAYLAND_CLIENT_LIBRARY})
+    endif()
+
+    if(ENGINE_GLFW_HAS_PLATFORM_API)
+        target_compile_definitions(glfw_minimal PRIVATE ENGINE_GLFW_HAS_PLATFORM_API)
+    endif()
 else()
-    message(STATUS "glfw_minimal currently implements native surface handles only for Linux/XCB")
+    message(STATUS "glfw_minimal currently implements native surface handles only for Linux/XCB and Linux/Wayland")
 endif()

@@ -20,6 +20,10 @@ _Avoid_: generic Linux native window, universal desktop surface
 The first implemented Linux surface variant. The harness passes an XCB connection and XCB window identifier for an X11 window so the visual runtime's Vulkan backend can create the Vulkan surface.
 _Avoid_: generic X11 handle, Xlib surface, GLFW-created Vulkan surface
 
+**Linux Wayland Surface**:
+A Linux surface variant for native Wayland sessions. The harness passes a Wayland display and Wayland surface so the visual runtime's Vulkan backend can create the Vulkan surface.
+_Avoid_: Wayland mode, GLFW-created Vulkan surface, generic Linux window
+
 **Harness**:
 The application shell that owns the process, window, run loop, and engine dylib lifecycle.
 _Avoid_: app layer, host app
