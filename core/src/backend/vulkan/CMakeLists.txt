@@ -1,6 +1,8 @@
 target_sources(engine PRIVATE
     renderer_vulkan.cpp
     vulkan_context.cpp
+    vulkan_frame_resources.cpp
+    vulkan_pipeline.cpp
     vulkan_swapchain.cpp
     vulkan_utils.cpp
 )
