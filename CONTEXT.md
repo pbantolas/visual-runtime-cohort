@@ -37,7 +37,7 @@ The first Linux-oriented harness, located under `host/glfw-minimal`, that uses G
 _Avoid_: portable app shell, GLFW renderer, UI parity harness
 
 **Visual Runtime**:
-The reloadable dylib that owns visual behavior behind the engine API boundary. Use this as the student-facing top-level concept instead of the generic term engine when discussing rendering behavior.
+The reloadable dylib that owns visual behavior behind the engine API boundary. Use this as the user-facing top-level concept instead of the generic term engine when discussing rendering behavior.
 _Avoid_: renderer app, host, generic engine
 
 **Engine API Boundary**:
@@ -53,7 +53,7 @@ The product-shaped interface of the visual runtime for creating and updating vis
 _Avoid_: renderer API, RHI, backend API, premature mesh/material/object API
 
 **Visual Runtime Feature Parity**:
-The expectation that a student can work on the same visual-runtime behavior across supported harnesses, even when each harness has different native UI affordances.
+The expectation that a participant can work on the same visual-runtime behavior across supported harnesses, even when each harness has different native UI affordances.
 _Avoid_: harness UI parity, identical app shell
 
 **Render World**:
