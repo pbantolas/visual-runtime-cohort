@@ -13,9 +13,9 @@
 		6DCDBDC53EE9E862F7D3836C /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 534722799557D5292D03F32D /* Preview Assets.xcassets */; };
 		9A1F09E776E84A3AE68758A5 /* TuistBundle+Host.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9956EB9C4A063FCB1080CD8 /* TuistBundle+Host.swift */; };
 		9FB37E91F19733B15CC52A5D /* HostApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F2F2EED12074247AFBF3E6 /* HostApp.swift */; };
-		AACA0DC4932B83FE814DF53D /* VisualRuntimeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42DCA7A449E0E94075ACBEB /* VisualRuntimeSession.swift */; };
+		B907021AB06AD23A39C64AAA /* VisualRuntimeHost.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0C577130AAC57CD92A319056 /* VisualRuntimeHost.cpp */; };
 		C3382A2BFD1D110B7DDF2FF4 /* TuistAssets+Host.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B045050D61FACD3BE88C6FE /* TuistAssets+Host.swift */; };
-		C9BA5472CDC07C17EDB30F56 /* VisualRuntimeHost.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 45AF95DFD37010B9D2DFCD5A /* VisualRuntimeHost.cpp */; };
+		C3D13808AFEA86E378A43033 /* VisualRuntimeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = F52430084E36D39D3A16382B /* VisualRuntimeSession.swift */; };
 		EFBC298F75DF97599780F6FE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D88B3CE696D9995711895E /* ContentView.swift */; };
 /* End PBXBuildFile section */
 
@@ -54,11 +54,10 @@
 
 /* Begin PBXFileReference section */
 		0441EFBD462BF2AD714DDF07 /* Host.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Host.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0C577130AAC57CD92A319056 /* VisualRuntimeHost.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VisualRuntimeHost.cpp; sourceTree = "<group>"; };
 		207B3F5735B750FEE8EA169D /* MetalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalView.swift; sourceTree = "<group>"; };
 		26D88B3CE696D9995711895E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		344F1AF6BFE596FEC1391990 /* VisualRuntimeHost.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VisualRuntimeHost.h; sourceTree = "<group>"; };
 		43B8A0B09F35AEC5E9EA0C1A /* HostTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "HostTests-Info.plist"; sourceTree = "<group>"; };
-		45AF95DFD37010B9D2DFCD5A /* VisualRuntimeHost.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = VisualRuntimeHost.cpp; sourceTree = "<group>"; };
 		534722799557D5292D03F32D /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		618C0A0B230819D0FCE5D324 /* Host-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Host-Info.plist"; sourceTree = "<group>"; };
 		65259F6A577BBD04858099C4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -67,7 +66,8 @@
 		91BA84221B4E24E635865A12 /* HostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostTests.swift; sourceTree = "<group>"; };
 		C9956EB9C4A063FCB1080CD8 /* TuistBundle+Host.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TuistBundle+Host.swift"; sourceTree = "<group>"; };
 		E5C30C3C0858BE1948CFD5DF /* HostTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = HostTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		F42DCA7A449E0E94075ACBEB /* VisualRuntimeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualRuntimeSession.swift; sourceTree = "<group>"; };
+		E75AB131DBA5C3D6D21D3A16 /* VisualRuntimeHost.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = VisualRuntimeHost.h; sourceTree = "<group>"; };
+		F52430084E36D39D3A16382B /* VisualRuntimeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualRuntimeSession.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -143,11 +143,11 @@
 			isa = PBXGroup;
 			children = (
 				26D88B3CE696D9995711895E /* ContentView.swift */,
-				45AF95DFD37010B9D2DFCD5A /* VisualRuntimeHost.cpp */,
-				344F1AF6BFE596FEC1391990 /* VisualRuntimeHost.h */,
-				F42DCA7A449E0E94075ACBEB /* VisualRuntimeSession.swift */,
 				69F2F2EED12074247AFBF3E6 /* HostApp.swift */,
 				207B3F5735B750FEE8EA169D /* MetalView.swift */,
+				0C577130AAC57CD92A319056 /* VisualRuntimeHost.cpp */,
+				E75AB131DBA5C3D6D21D3A16 /* VisualRuntimeHost.h */,
+				F52430084E36D39D3A16382B /* VisualRuntimeSession.swift */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
@@ -292,10 +292,10 @@
 				C3382A2BFD1D110B7DDF2FF4 /* TuistAssets+Host.swift in Sources */,
 				9A1F09E776E84A3AE68758A5 /* TuistBundle+Host.swift in Sources */,
 				EFBC298F75DF97599780F6FE /* ContentView.swift in Sources */,
-				C9BA5472CDC07C17EDB30F56 /* VisualRuntimeHost.cpp in Sources */,
-				AACA0DC4932B83FE814DF53D /* VisualRuntimeSession.swift in Sources */,
 				9FB37E91F19733B15CC52A5D /* HostApp.swift in Sources */,
 				5E8D965A63C82BF231F0891D /* MetalView.swift in Sources */,
+				B907021AB06AD23A39C64AAA /* VisualRuntimeHost.cpp in Sources */,
+				C3D13808AFEA86E378A43033 /* VisualRuntimeSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -386,7 +386,6 @@
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_PREVIEWS = YES;
-				VISUAL_RUNTIME_LIB_PATH = "$(SRCROOT)/../../build/lib/libvisual_runtime.dylib";
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../",
 					"$(SRCROOT)/../../core/include",
@@ -410,6 +409,7 @@
 				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5;
+				VISUAL_RUNTIME_LIB_PATH = "$(SRCROOT)/../../build/lib/libvisual_runtime.dylib";
 			};
 			name = Release;
 		};
@@ -512,7 +512,6 @@
 				CODE_SIGN_IDENTITY = "-";
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_PREVIEWS = YES;
-				VISUAL_RUNTIME_LIB_PATH = "$(SRCROOT)/../../build/lib/libvisual_runtime.dylib";
 				HEADER_SEARCH_PATHS = (
 					"$(SRCROOT)/../",
 					"$(SRCROOT)/../../core/include",
@@ -540,6 +539,7 @@
 				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5;
+				VISUAL_RUNTIME_LIB_PATH = "$(SRCROOT)/../../build/lib/libvisual_runtime.dylib";
 			};
 			name = Debug;
 		};
