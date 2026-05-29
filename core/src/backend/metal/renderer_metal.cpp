@@ -3,6 +3,10 @@
 #define MTL_PRIVATE_IMPLEMENTATION
 #include "renderer.h"
 
+#include "Foundation/Foundation.hpp"
+#include "QuartzCore/QuartzCore.hpp"
+#include "Metal/Metal.hpp"
+
 #include <glm/mat4x4.hpp>
 #include <cstddef>
 #include <cstdio>
@@ -31,13 +35,69 @@ void print_error(const char *context, NS::Error *error) {
 
 } // namespace
 
+struct RendererBackend {
+  bool init(SurfaceDescriptor *surface);
+  void resize(uint32_t width, uint32_t height);
+  void render_frame(float t);
+  void shutdown();
+
+private:
+  bool build_pipeline();
+  bool build_geometry();
+  bool build_uniforms();
+  void update_frame_uniforms();
+
+  CA::MetalLayer *layer_ = nullptr;
+  MTL::Device *device_ = nullptr;
+  MTL::CommandQueue *queue_ = nullptr;
+  MTL::Library *library_ = nullptr;
+  MTL::RenderPipelineState *pipeline_ = nullptr;
+  MTL::Buffer *vertex_buffer_ = nullptr;
+  MTL::Buffer *frame_uniform_buffer_ = nullptr;
+  NS::UInteger vertex_count_ = 0;
+  uint32_t render_width_ = 0;
+  uint32_t render_height_ = 0;
+};
+
+Renderer::Renderer() = default;
+Renderer::~Renderer() = default;
+Renderer::Renderer(Renderer &&) noexcept = default;
+Renderer &Renderer::operator=(Renderer &&) noexcept = default;
+
 bool Renderer::init(SurfaceDescriptor *surface) {
-  if (!surface || !surface->metal_layer)
+  if (!backend_) {
+    backend_ = std::make_unique<RendererBackend>();
+  }
+  return backend_->init(surface);
+}
+
+void Renderer::resize(uint32_t width, uint32_t height) {
+  if (backend_) {
+    backend_->resize(width, height);
+  }
+}
+
+void Renderer::render_frame(float t) {
+  if (backend_) {
+    backend_->render_frame(t);
+  }
+}
+
+void Renderer::shutdown() {
+  if (backend_) {
+    backend_->shutdown();
+    backend_.reset();
+  }
+}
+
+bool RendererBackend::init(SurfaceDescriptor *surface) {
+  if (!surface || surface->kind != SurfaceKind::MacOSMetalLayer ||
+      surface->surface_handle == 0)
     return false;
 
   shutdown();
 
-  layer_ = reinterpret_cast<CA::MetalLayer *>(surface->metal_layer);
+  layer_ = reinterpret_cast<CA::MetalLayer *>(surface->surface_handle);
   layer_->retain();
 
   device_ = MTL::CreateSystemDefaultDevice();
@@ -73,13 +133,17 @@ bool Renderer::init(SurfaceDescriptor *surface) {
   return true;
 }
 
-void Renderer::resize(uint32_t width, uint32_t height) {
+void RendererBackend::resize(uint32_t width, uint32_t height) {
+  if (render_width_ == width && render_height_ == height) {
+    return;
+  }
+
   render_width_ = width;
   render_height_ = height;
   update_frame_uniforms();
 }
 
-void Renderer::render_frame(float t) {
+void RendererBackend::render_frame(float t) {
   if (!layer_ || !queue_ || !pipeline_ || !vertex_buffer_ ||
       !frame_uniform_buffer_)
     return;
@@ -124,7 +188,7 @@ void Renderer::render_frame(float t) {
   pool->release();
 }
 
-bool Renderer::build_pipeline() {
+bool RendererBackend::build_pipeline() {
   NS::Error *error = nullptr;
   NS::String *shader_path =
       NS::String::string(ENGINE_SHADER_LIB_PATH, NS::UTF8StringEncoding);
@@ -186,7 +250,7 @@ bool Renderer::build_pipeline() {
   return true;
 }
 
-bool Renderer::build_geometry() {
+bool RendererBackend::build_geometry() {
   static constexpr Vertex vertices[] = {
       {{0.0f, 0.65f}, {1.0f, 0.0f, 0.0f}},
       {{-0.7f, -0.55f}, {0.0f, 1.0f, 0.0f}},
@@ -204,7 +268,7 @@ bool Renderer::build_geometry() {
   return true;
 }
 
-bool Renderer::build_uniforms() {
+bool RendererBackend::build_uniforms() {
   frame_uniform_buffer_ =
       device_->newBuffer(sizeof(FrameUniforms),
                          MTL::ResourceStorageModeShared);
@@ -217,7 +281,7 @@ bool Renderer::build_uniforms() {
   return true;
 }
 
-void Renderer::update_frame_uniforms() {
+void RendererBackend::update_frame_uniforms() {
   if (!frame_uniform_buffer_) {
     return;
   }
@@ -240,7 +304,7 @@ void Renderer::update_frame_uniforms() {
   *contents = uniforms;
 }
 
-void Renderer::shutdown() {
+void RendererBackend::shutdown() {
   if (frame_uniform_buffer_) {
     frame_uniform_buffer_->release();
     frame_uniform_buffer_ = nullptr;

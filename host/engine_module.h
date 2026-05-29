@@ -68,6 +68,10 @@ struct EngineModule {
         return state_.frame_count;
     }
 
+    const char* backendName() const {
+        return api_.backend_name ? api_.backend_name : "Unknown";
+    }
+
     explicit operator bool() const {
         return bool(lib_) && api_bound_;
     }

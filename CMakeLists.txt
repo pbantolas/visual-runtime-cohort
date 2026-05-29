@@ -7,3 +7,4 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(core)
 add_subdirectory(host/cli)
+add_subdirectory(host/glfw-minimal)

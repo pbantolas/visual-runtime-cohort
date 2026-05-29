@@ -16,6 +16,10 @@ inline bool engine_api_valid(const EngineAPI& api) {
                      api.struct_size, sizeof(EngineAPI));
         return false;
     }
+    if (!api.backend_name) {
+        std::fprintf(stderr, "[engine_api] missing required backend_name field\n");
+        return false;
+    }
     if (!api.init || !api.update) {
         std::fprintf(stderr, "[engine_api] missing required lifecycle functions\n");
         return false;

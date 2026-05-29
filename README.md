@@ -6,7 +6,7 @@ This is the codebase for the Graphics Engine Cohort: a product-driven case study
 
 The project is split into two layers: an **engine** that owns all rendering & interaction logic, and a **host** that owns the app shell and loads the engine at runtime. You work on the engine side for the most part; harness changes will usually be provided as the product brief evolves.
 
-The current hosts are a native macOS Metal window and a small CLI loop, but the architecture keeps rendering code out of the app target so the engine can evolve independently.
+The current hosts are a native macOS Metal window, a minimal Linux GLFW/Vulkan window, and a small CLI loop, but the architecture keeps rendering code out of the app target so the engine can evolve independently.
 
 You can also recompile and reload the engine while the host is running with no restart required.
 
@@ -18,6 +18,8 @@ The diagram below shows the main pieces you will see in the codebase.
 
 ## Prerequisites
 
+### macOS
+
 This project requires Xcode 15 or later. Install it from the Mac App Store if you haven't already. Everything else is available via Homebrew:
 
 ```sh
@@ -25,6 +27,10 @@ brew install cmake ninja just
 ```
 
 If you want to modify the macOS project itself, you may also need `tuist` (`brew install tuist`) to generate the Xcode project. `xcbeautify` is optional but makes Xcode build output readable (`brew install xcbeautify`).
+
+### Linux
+
+Linux users should use the Vulkan backend and the minimal GLFW harness. Follow the dependency and build instructions in [`host/glfw-minimal/README.md`](host/glfw-minimal/README.md).
 
 ## Getting Started
 
@@ -55,6 +61,17 @@ Or build and launch from the command line:
 ```sh
 just macos-run
 ```
+
+### Linux GLFW host
+
+Build and run the minimal GLFW harness:
+
+```sh
+just glfw-build
+just glfw-run
+```
+
+Hot reload works the same way: run `just engine Vulkan` in a separate terminal while the app is running.
 
 ## Usage
 
@@ -87,7 +104,7 @@ Opens a native Metal window. Hot reload works the same way: run `just engine` in
 ```
 engine/
 ├── core/      # Engine shared library (libengine.dylib) — renderer, shaders, public API
-├── host/      # Harness layer — engine module loader, CLI and macOS hosts
+├── host/      # Harness layer — engine module loader, CLI, macOS, and GLFW hosts
 ├── third_party/    # Third-party dependencies (glm, metal-cpp)
 └── justfile   # Task runner — prefer this over invoking cmake directly
 ```
@@ -110,7 +127,7 @@ Shaders are compiled by CMake via `xcrun metal` and `xcrun metallib` into a `.me
 
 | Variable | Type | Default | Description |
 |---|---|---|---|
-| `ENGINE_BACKEND` | CMake string | `Metal` | Renderer backend. Only `Metal` is supported. |
+| `ENGINE_BACKEND` | CMake string | `Metal` | Renderer backend. Supported values: `Metal`, `Vulkan`. |
 | `CMAKE_BUILD_TYPE` | CMake string | `Debug` | Standard CMake build type. |
 
 `ENGINE_BACKEND` is passed via the `backend` argument to just recipes, e.g. `just build Metal`. `CMAKE_BUILD_TYPE` is currently fixed to `Debug` by the configure recipe.
