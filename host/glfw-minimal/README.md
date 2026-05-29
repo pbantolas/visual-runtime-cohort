@@ -1,7 +1,7 @@
 # GLFW Minimal Harness
 
 This is the minimal Linux harness for the visual runtime. It creates a GLFW
-window, passes the native Linux surface handles through the Engine API Boundary,
+window, passes the native Linux surface handles through the Visual Runtime API Boundary,
 and leaves Vulkan instance/device/surface ownership inside the visual runtime.
 
 ## Required Dependencies
@@ -54,5 +54,5 @@ just glfw-run
 While the harness is running, rebuild the visual runtime from another terminal:
 
 ```bash
-just engine Vulkan
+just visual-runtime Vulkan
 ```

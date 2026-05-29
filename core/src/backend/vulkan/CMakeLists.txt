@@ -1,4 +1,4 @@
-target_sources(engine PRIVATE
+target_sources(visual_runtime PRIVATE
     renderer_vulkan.cpp
     vulkan_context.cpp
     vulkan_frame_resources.cpp
@@ -10,9 +10,9 @@ target_sources(engine PRIVATE
 find_package(Vulkan QUIET)
 
 if(Vulkan_FOUND)
-    target_link_libraries(engine PRIVATE Vulkan::Vulkan)
+    target_link_libraries(visual_runtime PRIVATE Vulkan::Vulkan)
 else()
-    find_path(ENGINE_VULKAN_INCLUDE_DIR
+    find_path(VRT_VULKAN_INCLUDE_DIR
         NAMES vulkan/vulkan.h
         HINTS
             "$ENV{VULKAN_SDK}/include"
@@ -20,7 +20,7 @@ else()
             /usr/local/include
             /usr/include
     )
-    find_library(ENGINE_VULKAN_LIBRARY
+    find_library(VRT_VULKAN_LIBRARY
         NAMES vulkan
         HINTS
             "$ENV{VULKAN_SDK}/lib"
@@ -29,12 +29,12 @@ else()
             /usr/lib
     )
 
-    if(NOT ENGINE_VULKAN_INCLUDE_DIR OR NOT ENGINE_VULKAN_LIBRARY)
-        message(FATAL_ERROR "ENGINE_BACKEND=Vulkan requires Vulkan headers and loader. Install a Vulkan SDK, or on macOS run: brew install vulkan-headers vulkan-loader molten-vk")
+    if(NOT VRT_VULKAN_INCLUDE_DIR OR NOT VRT_VULKAN_LIBRARY)
+        message(FATAL_ERROR "VISUAL_RUNTIME_BACKEND=Vulkan requires Vulkan headers and loader. Install a Vulkan SDK, or on macOS run: brew install vulkan-headers vulkan-loader molten-vk")
     endif()
 
-    target_include_directories(engine PRIVATE "${ENGINE_VULKAN_INCLUDE_DIR}")
-    target_link_libraries(engine PRIVATE "${ENGINE_VULKAN_LIBRARY}")
+    target_include_directories(visual_runtime PRIVATE "${VRT_VULKAN_INCLUDE_DIR}")
+    target_link_libraries(visual_runtime PRIVATE "${VRT_VULKAN_LIBRARY}")
 endif()
 
 find_program(GLSLANG_VALIDATOR_EXECUTABLE
@@ -46,49 +46,49 @@ find_program(GLSLANG_VALIDATOR_EXECUTABLE
 )
 
 if(NOT GLSLANG_VALIDATOR_EXECUTABLE)
-    message(FATAL_ERROR "ENGINE_BACKEND=Vulkan requires glslangValidator to compile GLSL shaders. Install a Vulkan SDK, or on macOS run: brew install glslang")
+    message(FATAL_ERROR "VISUAL_RUNTIME_BACKEND=Vulkan requires glslangValidator to compile GLSL shaders. Install a Vulkan SDK, or on macOS run: brew install glslang")
 endif()
 
-set(ENGINE_VULKAN_SHADER_DIR "${CMAKE_SOURCE_DIR}/core/shaders/vulkan")
-set(ENGINE_VULKAN_SPIRV_DIR "${CMAKE_BINARY_DIR}/shaders/vulkan")
-set(ENGINE_VULKAN_VERTEX_SHADER "${ENGINE_VULKAN_SHADER_DIR}/basic.vert.glsl")
-set(ENGINE_VULKAN_FRAGMENT_SHADER "${ENGINE_VULKAN_SHADER_DIR}/basic.frag.glsl")
-set(ENGINE_VULKAN_VERTEX_SPV "${ENGINE_VULKAN_SPIRV_DIR}/basic.vert.spv")
-set(ENGINE_VULKAN_FRAGMENT_SPV "${ENGINE_VULKAN_SPIRV_DIR}/basic.frag.spv")
+set(VRT_VULKAN_SHADER_DIR "${CMAKE_SOURCE_DIR}/core/shaders/vulkan")
+set(VRT_VULKAN_SPIRV_DIR "${CMAKE_BINARY_DIR}/shaders/vulkan")
+set(VRT_VULKAN_VERTEX_SHADER "${VRT_VULKAN_SHADER_DIR}/basic.vert.glsl")
+set(VRT_VULKAN_FRAGMENT_SHADER "${VRT_VULKAN_SHADER_DIR}/basic.frag.glsl")
+set(VRT_VULKAN_VERTEX_SPV "${VRT_VULKAN_SPIRV_DIR}/basic.vert.spv")
+set(VRT_VULKAN_FRAGMENT_SPV "${VRT_VULKAN_SPIRV_DIR}/basic.frag.spv")
 
 add_custom_command(
-    OUTPUT "${ENGINE_VULKAN_VERTEX_SPV}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${ENGINE_VULKAN_SPIRV_DIR}"
-    COMMAND "${GLSLANG_VALIDATOR_EXECUTABLE}" -V "${ENGINE_VULKAN_VERTEX_SHADER}" -o "${ENGINE_VULKAN_VERTEX_SPV}"
-    DEPENDS "${ENGINE_VULKAN_VERTEX_SHADER}"
-    COMMENT "Compiling Vulkan vertex shader ${ENGINE_VULKAN_VERTEX_SHADER}"
+    OUTPUT "${VRT_VULKAN_VERTEX_SPV}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${VRT_VULKAN_SPIRV_DIR}"
+    COMMAND "${GLSLANG_VALIDATOR_EXECUTABLE}" -V "${VRT_VULKAN_VERTEX_SHADER}" -o "${VRT_VULKAN_VERTEX_SPV}"
+    DEPENDS "${VRT_VULKAN_VERTEX_SHADER}"
+    COMMENT "Compiling Vulkan vertex shader ${VRT_VULKAN_VERTEX_SHADER}"
     VERBATIM
 )
 
 add_custom_command(
-    OUTPUT "${ENGINE_VULKAN_FRAGMENT_SPV}"
-    COMMAND "${CMAKE_COMMAND}" -E make_directory "${ENGINE_VULKAN_SPIRV_DIR}"
-    COMMAND "${GLSLANG_VALIDATOR_EXECUTABLE}" -V "${ENGINE_VULKAN_FRAGMENT_SHADER}" -o "${ENGINE_VULKAN_FRAGMENT_SPV}"
-    DEPENDS "${ENGINE_VULKAN_FRAGMENT_SHADER}"
-    COMMENT "Compiling Vulkan fragment shader ${ENGINE_VULKAN_FRAGMENT_SHADER}"
+    OUTPUT "${VRT_VULKAN_FRAGMENT_SPV}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${VRT_VULKAN_SPIRV_DIR}"
+    COMMAND "${GLSLANG_VALIDATOR_EXECUTABLE}" -V "${VRT_VULKAN_FRAGMENT_SHADER}" -o "${VRT_VULKAN_FRAGMENT_SPV}"
+    DEPENDS "${VRT_VULKAN_FRAGMENT_SHADER}"
+    COMMENT "Compiling Vulkan fragment shader ${VRT_VULKAN_FRAGMENT_SHADER}"
     VERBATIM
 )
 
-add_custom_target(engine_vulkan_shaders
+add_custom_target(visual_runtime_vulkan_shaders
     DEPENDS
-        "${ENGINE_VULKAN_VERTEX_SPV}"
-        "${ENGINE_VULKAN_FRAGMENT_SPV}"
+        "${VRT_VULKAN_VERTEX_SPV}"
+        "${VRT_VULKAN_FRAGMENT_SPV}"
 )
-add_dependencies(engine engine_vulkan_shaders)
+add_dependencies(visual_runtime visual_runtime_vulkan_shaders)
 
-target_compile_definitions(engine PRIVATE
-    ENGINE_VULKAN_VERTEX_SPV_PATH="${ENGINE_VULKAN_VERTEX_SPV}"
-    ENGINE_VULKAN_FRAGMENT_SPV_PATH="${ENGINE_VULKAN_FRAGMENT_SPV}"
+target_compile_definitions(visual_runtime PRIVATE
+    VRT_VULKAN_VERTEX_SPV_PATH="${VRT_VULKAN_VERTEX_SPV}"
+    VRT_VULKAN_FRAGMENT_SPV_PATH="${VRT_VULKAN_FRAGMENT_SPV}"
 )
 
 if(APPLE)
     set(MOLTENVK_ROOT "" CACHE PATH "Optional MoltenVK install root for macOS Vulkan smoke tests")
-    find_file(ENGINE_MOLTENVK_ICD_JSON
+    find_file(VRT_MOLTENVK_ICD_JSON
         NAMES MoltenVK_icd.json
         HINTS
             "${MOLTENVK_ROOT}/etc/vulkan/icd.d"
@@ -97,15 +97,15 @@ if(APPLE)
             /usr/local/opt/molten-vk/etc/vulkan/icd.d
     )
 
-    if(NOT ENGINE_MOLTENVK_ICD_JSON)
-        message(FATAL_ERROR "ENGINE_BACKEND=Vulkan on macOS requires MoltenVK for local smoke testing. Install it with: brew install molten-vk, or set MOLTENVK_ROOT.")
+    if(NOT VRT_MOLTENVK_ICD_JSON)
+        message(FATAL_ERROR "VISUAL_RUNTIME_BACKEND=Vulkan on macOS requires MoltenVK for local smoke testing. Install it with: brew install molten-vk, or set MOLTENVK_ROOT.")
     endif()
 
-    target_compile_definitions(engine PRIVATE
-        ENGINE_MOLTENVK_ICD_JSON="${ENGINE_MOLTENVK_ICD_JSON}"
+    target_compile_definitions(visual_runtime PRIVATE
+        VRT_MOLTENVK_ICD_JSON="${VRT_MOLTENVK_ICD_JSON}"
     )
 endif()
 
-target_compile_definitions(engine PRIVATE
-    ENGINE_BACKEND_VULKAN=1
+target_compile_definitions(visual_runtime PRIVATE
+    VRT_BACKEND_VULKAN=1
 )

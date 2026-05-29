@@ -1,29 +1,29 @@
-set(ENGINE_BACKEND "Metal" CACHE STRING "Renderer backend")
-set_property(CACHE ENGINE_BACKEND PROPERTY STRINGS Metal Vulkan)
+set(VISUAL_RUNTIME_BACKEND "Metal" CACHE STRING "Renderer backend")
+set_property(CACHE VISUAL_RUNTIME_BACKEND PROPERTY STRINGS Metal Vulkan)
 
-add_library(engine SHARED src/engine.cpp)
+add_library(visual_runtime SHARED src/visual_runtime.cpp)
 
-target_include_directories(engine PUBLIC
+target_include_directories(visual_runtime PUBLIC
     include
     ${CMAKE_SOURCE_DIR}/third_party/glm
 )
 
-target_include_directories(engine PRIVATE
+target_include_directories(visual_runtime PRIVATE
     src
 )
 
-target_compile_definitions(engine PRIVATE
-    ENGINE_BACKEND_NAME="${ENGINE_BACKEND}"
+target_compile_definitions(visual_runtime PRIVATE
+    VISUAL_RUNTIME_BACKEND_NAME="${VISUAL_RUNTIME_BACKEND}"
 )
 
-set_target_properties(engine PROPERTIES
+set_target_properties(visual_runtime PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib"
 )
 
-if(ENGINE_BACKEND STREQUAL "Metal")
+if(VISUAL_RUNTIME_BACKEND STREQUAL "Metal")
     add_subdirectory(src/backend/metal)
-elseif(ENGINE_BACKEND STREQUAL "Vulkan")
+elseif(VISUAL_RUNTIME_BACKEND STREQUAL "Vulkan")
     add_subdirectory(src/backend/vulkan)
 else()
-    message(FATAL_ERROR "Unsupported ENGINE_BACKEND: ${ENGINE_BACKEND}")
+    message(FATAL_ERROR "Unsupported VISUAL_RUNTIME_BACKEND: ${VISUAL_RUNTIME_BACKEND}")
 endif()

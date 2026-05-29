@@ -8,7 +8,7 @@
 #include <functional>
 #include <vector>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 class VulkanFrameResources {
 public:
@@ -52,4 +52,4 @@ private:
   std::vector<VkCommandBuffer> command_buffers_{};
 };
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

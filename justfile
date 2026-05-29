@@ -11,7 +11,7 @@ default:
 
 [private]
 configure backend=backend:
-    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug -DENGINE_BACKEND={{backend}}
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_BUILD_TYPE=Debug -DVISUAL_RUNTIME_BACKEND={{backend}}
 
 # configure + build everything
 build backend=backend: (configure backend)
@@ -19,7 +19,7 @@ build backend=backend: (configure backend)
 
 # generate compile_commands.json for clangd / IDE tooling
 compile-commands backend=backend:
-    cmake -B {{build_dir}} -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENGINE_BACKEND={{backend}}
+    cmake -B {{build_dir}} -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DVISUAL_RUNTIME_BACKEND={{backend}}
     ln -sf {{build_dir}}/compile_commands.json compile_commands.json
 
 # run the cli host (terminal 1)
@@ -34,9 +34,9 @@ glfw-build backend="Vulkan": (configure backend)
 glfw-run backend="Vulkan": (glfw-build backend)
     ./{{build_dir}}/host/glfw-minimal/glfw_minimal
 
-# build the engine dylib — run in a second terminal to trigger hot reload in a running host
-engine backend=backend: (configure backend)
-    cmake --build {{build_dir}} --target engine
+# build the visual runtime dylib — run in a second terminal to trigger hot reload in a running host
+visual-runtime backend=backend: (configure backend)
+    cmake --build {{build_dir}} --target visual_runtime
 
 [private]
 ensure-macos-project:
@@ -71,7 +71,7 @@ macos-build: ensure-macos-project
     fi
 
 # build and launch the macOS host app
-macos-run: engine macos-build
+macos-run: visual-runtime macos-build
     open {{macos_app}}
 
 # open the macOS host workspace in Xcode

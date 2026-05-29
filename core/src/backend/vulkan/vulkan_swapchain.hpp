@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 struct SwapchainSupport {
   VkSurfaceCapabilitiesKHR capabilities{};
@@ -22,4 +22,4 @@ choose_present_mode(const std::vector<VkPresentModeKHR> &present_modes);
 VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR &capabilities,
                                    uint32_t width, uint32_t height);
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

@@ -1,22 +1,22 @@
 import QuartzCore
 
-public final class EngineSession {
-    private var engineHost: EngineHost
+public final class VisualRuntimeSession {
+    private var host: VisualRuntimeHost
     public var backendName: String {
-        String(engineHost.backendName())
+        String(host.backendName())
     }
 
     public init?(libPath: String) {
-        let engineHost = EngineHost(std.string(libPath))
-        guard engineHost.valid() else {
+        let host = VisualRuntimeHost(std.string(libPath))
+        guard host.valid() else {
             return nil
         }
-        self.engineHost = engineHost
+        self.host = host
     }
 
     func attach(_ layer: CAMetalLayer) {
         let size = layer.drawableSize
-        engineHost.attachSurface(
+        host.attachSurface(
             Unmanaged.passUnretained(layer).toOpaque(),
             UInt32(size.width),
             UInt32(size.height)
@@ -24,14 +24,14 @@ public final class EngineSession {
     }
 
     func resize(width: UInt32, height: UInt32) {
-        engineHost.resize(width, height)
+        host.resize(width, height)
     }
 
     func tick(_ dt: Float) {
-        engineHost.tick(dt)
+        host.tick(dt)
     }
 
     func reload() {
-        _ = engineHost.reload()
+        _ = host.reload()
     }
 }

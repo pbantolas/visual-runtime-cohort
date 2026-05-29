@@ -1,25 +1,25 @@
-#include "engine_module.h"
+#include "visual_runtime_module.h"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #if defined(__linux__)
 #include <GLFW/glfw3native.h>
-#if defined(ENGINE_GLFW_HAS_NATIVE_X11)
+#if defined(VRT_GLFW_HAS_NATIVE_X11)
 #include <X11/Xlib-xcb.h>
 #include <xcb/xcb.h>
 #endif
 #endif
 
 #include <chrono>
-#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 
 namespace {
 
 struct AppState {
-  EngineModule *engine = nullptr;
+  VisualRuntimeModule *runtime = nullptr;
 };
 
 void glfw_error(int code, const char *description) {
@@ -34,18 +34,18 @@ bool env_set(const char *name) {
 
 void framebuffer_resized(GLFWwindow *window, int width, int height) {
   auto *state = static_cast<AppState *>(glfwGetWindowUserPointer(window));
-  if (!state || !state->engine) {
+  if (!state || !state->runtime) {
     return;
   }
 
-  state->engine->resize(static_cast<uint32_t>(width),
-                        static_cast<uint32_t>(height));
+  state->runtime->resize(static_cast<uint32_t>(width),
+                         static_cast<uint32_t>(height));
   std::fprintf(stderr, "[glfw-minimal] resized to %dx%d\n", width, height);
 }
 
 #if defined(__linux__)
-#if defined(ENGINE_GLFW_HAS_NATIVE_WAYLAND)
-bool attach_wayland_surface(GLFWwindow *window, EngineModule &engine) {
+#if defined(VRT_GLFW_HAS_NATIVE_WAYLAND)
+bool attach_wayland_surface(GLFWwindow *window, VisualRuntimeModule &runtime) {
   wl_display *display = glfwGetWaylandDisplay();
   wl_surface *wayland_surface = glfwGetWaylandWindow(window);
   if (!display || !wayland_surface) {
@@ -68,25 +68,23 @@ bool attach_wayland_surface(GLFWwindow *window, EngineModule &engine) {
   std::fprintf(stderr,
                "[glfw-minimal] attaching LinuxWaylandSurface surface (%ux%u)\n",
                surface.width, surface.height);
-  engine.attachSurface(surface);
+  runtime.attachSurface(surface);
   return true;
 }
 #endif
 
-#if defined(ENGINE_GLFW_HAS_NATIVE_X11)
-bool attach_xcb_surface(GLFWwindow *window, EngineModule &engine) {
+#if defined(VRT_GLFW_HAS_NATIVE_X11)
+bool attach_xcb_surface(GLFWwindow *window, VisualRuntimeModule &runtime) {
   Display *display = glfwGetX11Display();
   if (!display) {
-    std::fprintf(stderr,
-                 "[glfw-minimal] failed to get XCB surface handles\n");
+    std::fprintf(stderr, "[glfw-minimal] failed to get XCB surface handles\n");
     return false;
   }
 
   Window x11_window = glfwGetX11Window(window);
   xcb_connection_t *connection = XGetXCBConnection(display);
   if (x11_window == 0 || !connection || xcb_connection_has_error(connection)) {
-    std::fprintf(stderr,
-                 "[glfw-minimal] failed to get XCB surface handles\n");
+    std::fprintf(stderr, "[glfw-minimal] failed to get XCB surface handles\n");
     return false;
   }
 
@@ -95,73 +93,73 @@ bool attach_xcb_surface(GLFWwindow *window, EngineModule &engine) {
   glfwGetFramebufferSize(window, &width, &height);
 
   SurfaceDescriptor surface{
-      SurfaceKind::LinuxXcbWindow,
-      connection,
-      static_cast<uintptr_t>(x11_window),
-      static_cast<uint32_t>(width),
+      SurfaceKind::LinuxXcbWindow,        connection,
+      static_cast<uintptr_t>(x11_window), static_cast<uint32_t>(width),
       static_cast<uint32_t>(height),
   };
   std::fprintf(stderr,
                "[glfw-minimal] attaching LinuxXcbWindow surface (%ux%u)\n",
                surface.width, surface.height);
-  engine.attachSurface(surface);
+  runtime.attachSurface(surface);
   return true;
 }
 #endif
 
-bool attach_surface(GLFWwindow *window, EngineModule &engine) {
-#if defined(ENGINE_GLFW_HAS_PLATFORM_API)
+bool attach_surface(GLFWwindow *window, VisualRuntimeModule &runtime) {
+#if defined(VRT_GLFW_HAS_PLATFORM_API)
   const int platform = glfwGetPlatform();
-#if defined(ENGINE_GLFW_HAS_NATIVE_WAYLAND)
+#if defined(VRT_GLFW_HAS_NATIVE_WAYLAND)
   if (platform == GLFW_PLATFORM_WAYLAND) {
-    return attach_wayland_surface(window, engine);
+    return attach_wayland_surface(window, runtime);
   }
 #endif
 
-#if defined(ENGINE_GLFW_HAS_NATIVE_X11)
+#if defined(VRT_GLFW_HAS_NATIVE_X11)
   if (platform == GLFW_PLATFORM_X11) {
-    return attach_xcb_surface(window, engine);
+    return attach_xcb_surface(window, runtime);
   }
 #endif
 
-  std::fprintf(stderr, "[glfw-minimal] unsupported GLFW platform: %d\n", platform);
+  std::fprintf(stderr, "[glfw-minimal] unsupported GLFW platform: %d\n",
+               platform);
   return false;
 #else
   const bool has_wayland_display = env_set("WAYLAND_DISPLAY");
   const bool has_x11_display = env_set("DISPLAY");
-#if defined(ENGINE_GLFW_HAS_NATIVE_WAYLAND)
-  if (has_wayland_display && attach_wayland_surface(window, engine)) {
+#if defined(VRT_GLFW_HAS_NATIVE_WAYLAND)
+  if (has_wayland_display && attach_wayland_surface(window, runtime)) {
     return true;
   }
 #endif
 
-#if defined(ENGINE_GLFW_HAS_NATIVE_X11)
-  if (has_x11_display && attach_xcb_surface(window, engine)) {
+#if defined(VRT_GLFW_HAS_NATIVE_X11)
+  if (has_x11_display && attach_xcb_surface(window, runtime)) {
     return true;
   }
 #endif
 
-#if defined(ENGINE_GLFW_HAS_NATIVE_WAYLAND)
-  if (!has_wayland_display && attach_wayland_surface(window, engine)) {
+#if defined(VRT_GLFW_HAS_NATIVE_WAYLAND)
+  if (!has_wayland_display && attach_wayland_surface(window, runtime)) {
     return true;
   }
 #endif
 
-#if defined(ENGINE_GLFW_HAS_NATIVE_X11)
-  if (!has_x11_display && attach_xcb_surface(window, engine)) {
+#if defined(VRT_GLFW_HAS_NATIVE_X11)
+  if (!has_x11_display && attach_xcb_surface(window, runtime)) {
     return true;
   }
 #endif
 
-  std::fprintf(stderr,
-               "[glfw-minimal] could not attach Wayland or XCB surface handles\n");
+  std::fprintf(
+      stderr,
+      "[glfw-minimal] could not attach Wayland or XCB surface handles\n");
   return false;
 #endif
 }
 #else
-bool attach_surface(GLFWwindow *window, EngineModule &engine) {
+bool attach_surface(GLFWwindow *window, VisualRuntimeModule &runtime) {
   (void)window;
-  (void)engine;
+  (void)runtime;
   std::fprintf(stderr,
                "[glfw-minimal] native surface handles are not implemented for "
                "this platform\n");
@@ -182,24 +180,25 @@ int main() {
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   GLFWwindow *window =
-      glfwCreateWindow(1280, 720, "Graphics Engine", nullptr, nullptr);
+      glfwCreateWindow(1280, 720, "Visual Runtime", nullptr, nullptr);
   if (!window) {
     glfwTerminate();
     return 1;
   }
 
-  EngineModule engine = EngineModule::open(ENGINE_LIB_PATH);
-  if (!engine) {
+  VisualRuntimeModule runtime =
+      VisualRuntimeModule::open(VISUAL_RUNTIME_LIB_PATH);
+  if (!runtime) {
     glfwDestroyWindow(window);
     glfwTerminate();
     return 1;
   }
 
-  AppState state{&engine};
+  AppState state{&runtime};
   glfwSetWindowUserPointer(window, &state);
   glfwSetFramebufferSizeCallback(window, framebuffer_resized);
 
-  if (!attach_surface(window, engine)) {
+  if (!attach_surface(window, runtime)) {
     glfwDestroyWindow(window);
     glfwTerminate();
     return 1;
@@ -209,20 +208,20 @@ int main() {
   auto last = clock::now();
 
   while (!glfwWindowShouldClose(window)) {
-    if (engine.reloadIfChanged()) {
-      std::printf("[host] reloaded (frame %llu)\n", engine.frameCount());
+    if (runtime.reloadIfChanged()) {
+      std::printf("[host] reloaded (frame %llu)\n", runtime.frameCount());
     }
 
     auto now = clock::now();
     float dt = std::chrono::duration<float>(now - last).count();
     last = now;
 
-    engine.tick(dt);
+    runtime.tick(dt);
     glfwPollEvents();
   }
 
   std::printf("[glfw-minimal] exiting after %llu frames\n",
-              engine.frameCount());
+              runtime.frameCount());
   glfwDestroyWindow(window);
   glfwTerminate();
   return 0;

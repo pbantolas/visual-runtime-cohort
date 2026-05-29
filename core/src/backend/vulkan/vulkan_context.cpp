@@ -6,16 +6,16 @@
 #include <vulkan/vulkan_metal.h>
 #endif
 #if defined(__linux__)
-#include <wayland-client.h>
-#include <xcb/xcb.h>
 #include <vulkan/vulkan_wayland.h>
 #include <vulkan/vulkan_xcb.h>
+#include <wayland-client.h>
+#include <xcb/xcb.h>
 #endif
 
 #include <cstdio>
 #include <utility>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 namespace {
 
@@ -144,9 +144,9 @@ bool VulkanContext::create_instance(SurfaceKind surface_kind) {
 
   VkApplicationInfo app_info{};
   app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  app_info.pApplicationName = "Graphics Engine Cohort";
+  app_info.pApplicationName = "Visual Runtime Cohort";
   app_info.applicationVersion = VK_MAKE_VERSION(0, 1, 0);
-  app_info.pEngineName = "Graphics Engine";
+  app_info.pEngineName = "Visual Runtime";
   app_info.engineVersion = VK_MAKE_VERSION(0, 1, 0);
   app_info.apiVersion = VK_API_VERSION_1_3;
 
@@ -169,7 +169,8 @@ bool VulkanContext::create_surface(const SurfaceDescriptor &surface) {
     auto create_metal_surface = reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(
         vkGetInstanceProcAddr(instance_, "vkCreateMetalSurfaceEXT"));
     if (!create_metal_surface) {
-      std::fprintf(stderr, "[renderer] failed to load vkCreateMetalSurfaceEXT\n");
+      std::fprintf(stderr,
+                   "[renderer] failed to load vkCreateMetalSurfaceEXT\n");
       return false;
     }
 
@@ -394,4 +395,4 @@ bool VulkanContext::create_device() {
   return true;
 }
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

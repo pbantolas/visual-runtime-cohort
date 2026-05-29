@@ -46,9 +46,9 @@ final class MetalNSView: NSView {
 // MARK: - SwiftUI wrapper
 
 struct MetalView: NSViewRepresentable {
-    let engineSession: EngineSession
+    let session: VisualRuntimeSession
 
-    func makeCoordinator() -> Coordinator { Coordinator(engineSession: engineSession) }
+    func makeCoordinator() -> Coordinator { Coordinator(session: session) }
 
     func makeNSView(context: Context) -> MetalNSView {
         let view = MetalNSView()
@@ -58,21 +58,21 @@ struct MetalView: NSViewRepresentable {
 
     func updateNSView(_ view: MetalNSView, context: Context) {}
 
-    // MARK: Coordinator - owns the display link and drives engine ticks
+    // MARK: Coordinator - owns the display link and drives visual runtime ticks
 
     final class Coordinator: NSObject {
-        let engineSession: EngineSession
+        let session: VisualRuntimeSession
         private var displayLink: CADisplayLink?
         private var lastTime: Double = 0
 
-        init(engineSession: EngineSession) { self.engineSession = engineSession }
+        init(session: VisualRuntimeSession) { self.session = session }
 
         func start(view: MetalNSView) {
             view.updateDrawableSize(view.frame.size)
-            view.drawableSizeDidChange = { [weak engineSession] size in
-                engineSession?.resize(width: UInt32(size.width), height: UInt32(size.height))
+            view.drawableSizeDidChange = { [weak session] size in
+                session?.resize(width: UInt32(size.width), height: UInt32(size.height))
             }
-            engineSession.attach(view.metalLayer)
+            session.attach(view.metalLayer)
 
             let displayLink = view.displayLink(target: self, selector: #selector(displayLinkFired(_:)))
             displayLink.add(to: .main, forMode: .common)
@@ -83,7 +83,7 @@ struct MetalView: NSViewRepresentable {
             let now = displayLink.timestamp
             let dt  = lastTime == 0 ? 0.0 : Float(now - lastTime)
             lastTime = now
-            engineSession.tick(dt)
+            session.tick(dt)
         }
 
         deinit { displayLink?.invalidate() }

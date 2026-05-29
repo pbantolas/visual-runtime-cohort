@@ -4,7 +4,7 @@
 #include <cstring>
 #include <fstream>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 const char *vk_result_name(VkResult result) {
   switch (result) {
@@ -173,4 +173,4 @@ bool read_binary_file(const char *path, std::vector<char> &bytes) {
   return true;
 }
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

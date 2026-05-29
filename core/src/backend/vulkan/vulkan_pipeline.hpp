@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 struct VulkanPipelineConfig {
   VkDescriptorSetLayout descriptor_set_layout = VK_NULL_HANDLE;
@@ -34,4 +34,4 @@ private:
   VkPipeline pipeline_ = VK_NULL_HANDLE;
 };
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

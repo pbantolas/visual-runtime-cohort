@@ -6,7 +6,7 @@
 #include <limits>
 #include <vector>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 constexpr uint32_t invalid_queue_family = std::numeric_limits<uint32_t>::max();
 
@@ -31,4 +31,4 @@ uint32_t find_memory_type(VkPhysicalDevice physical_device,
                           VkMemoryPropertyFlags properties);
 bool read_binary_file(const char *path, std::vector<char> &bytes);
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

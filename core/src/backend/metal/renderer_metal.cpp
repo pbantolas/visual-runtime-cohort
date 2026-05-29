@@ -4,12 +4,12 @@
 #include "renderer.h"
 
 #include "Foundation/Foundation.hpp"
-#include "QuartzCore/QuartzCore.hpp"
 #include "Metal/Metal.hpp"
+#include "QuartzCore/QuartzCore.hpp"
 
-#include <glm/mat4x4.hpp>
 #include <cstddef>
 #include <cstdio>
+#include <glm/mat4x4.hpp>
 
 namespace {
 
@@ -191,10 +191,10 @@ void RendererBackend::render_frame(float t) {
 bool RendererBackend::build_pipeline() {
   NS::Error *error = nullptr;
   NS::String *shader_path =
-      NS::String::string(ENGINE_SHADER_LIB_PATH, NS::UTF8StringEncoding);
+      NS::String::string(VRT_SHADER_LIB_PATH, NS::UTF8StringEncoding);
   library_ = device_->newLibrary(shader_path, &error);
   if (!library_) {
-    print_error("failed to load Metal library " ENGINE_SHADER_LIB_PATH, error);
+    print_error("failed to load Metal library " VRT_SHADER_LIB_PATH, error);
     return false;
   }
 
@@ -270,8 +270,7 @@ bool RendererBackend::build_geometry() {
 
 bool RendererBackend::build_uniforms() {
   frame_uniform_buffer_ =
-      device_->newBuffer(sizeof(FrameUniforms),
-                         MTL::ResourceStorageModeShared);
+      device_->newBuffer(sizeof(FrameUniforms), MTL::ResourceStorageModeShared);
   if (!frame_uniform_buffer_) {
     std::fprintf(stderr, "[renderer] failed to create frame uniform buffer\n");
     return false;

@@ -14,14 +14,14 @@
 
 namespace {
 
-using engine::vulkan::check_vk;
-using engine::vulkan::find_memory_type;
-using engine::vulkan::invalid_queue_family;
-using engine::vulkan::print_vk_error;
-using engine::vulkan::VulkanContext;
-using engine::vulkan::VulkanFrameResources;
-using engine::vulkan::VulkanPipeline;
-using engine::vulkan::VulkanPipelineConfig;
+using visual_runtime::vulkan::check_vk;
+using visual_runtime::vulkan::find_memory_type;
+using visual_runtime::vulkan::invalid_queue_family;
+using visual_runtime::vulkan::print_vk_error;
+using visual_runtime::vulkan::VulkanContext;
+using visual_runtime::vulkan::VulkanFrameResources;
+using visual_runtime::vulkan::VulkanPipeline;
+using visual_runtime::vulkan::VulkanPipelineConfig;
 
 struct Vertex {
   float position[2];
@@ -418,8 +418,8 @@ bool RendererBackend::build_pipeline() {
   VulkanPipelineConfig config{};
   config.descriptor_set_layout = descriptor_set_layout_;
   config.color_format = frame_resources_.format();
-  config.vertex_shader_path = ENGINE_VULKAN_VERTEX_SPV_PATH;
-  config.fragment_shader_path = ENGINE_VULKAN_FRAGMENT_SPV_PATH;
+  config.vertex_shader_path = VRT_VULKAN_VERTEX_SPV_PATH;
+  config.fragment_shader_path = VRT_VULKAN_FRAGMENT_SPV_PATH;
   config.vertex_stride = sizeof(Vertex);
   config.position_offset = offsetof(Vertex, position);
   config.color_offset = offsetof(Vertex, color);

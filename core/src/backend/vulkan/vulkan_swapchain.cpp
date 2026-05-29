@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 bool query_swapchain_support(VkPhysicalDevice physical_device,
                              VkSurfaceKHR surface, SwapchainSupport &support) {
@@ -83,4 +83,4 @@ VkExtent2D choose_swapchain_extent(const VkSurfaceCapabilitiesKHR &capabilities,
   return extent;
 }
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

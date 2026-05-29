@@ -1,25 +1,25 @@
 #pragma once
 
-#include "engine/api.h"
+#include "visual_runtime/api.h"
 
 #include <memory>
 
 struct RendererBackend;
 
 struct Renderer {
-    Renderer();
-    ~Renderer();
+  Renderer();
+  ~Renderer();
 
-    Renderer(const Renderer&) = delete;
-    Renderer& operator=(const Renderer&) = delete;
-    Renderer(Renderer&&) noexcept;
-    Renderer& operator=(Renderer&&) noexcept;
+  Renderer(const Renderer &) = delete;
+  Renderer &operator=(const Renderer &) = delete;
+  Renderer(Renderer &&) noexcept;
+  Renderer &operator=(Renderer &&) noexcept;
 
-    bool init(SurfaceDescriptor* surface);
-    void resize(uint32_t width, uint32_t height);
-    void render_frame(float t);
-    void shutdown();
+  bool init(SurfaceDescriptor *surface);
+  void resize(uint32_t width, uint32_t height);
+  void render_frame(float t);
+  void shutdown();
 
 private:
-    std::unique_ptr<RendererBackend> backend_;
+  std::unique_ptr<RendererBackend> backend_;
 };

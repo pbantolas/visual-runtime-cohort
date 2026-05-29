@@ -7,7 +7,7 @@
 
 #include <vector>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 struct QueueFamilies {
   uint32_t graphics = invalid_queue_family;
@@ -51,4 +51,4 @@ private:
 
 bool queue_families_complete(const QueueFamilies &families);
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

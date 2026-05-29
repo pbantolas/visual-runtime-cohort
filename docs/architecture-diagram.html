@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Engine Architecture — macOS Harness & Visual Runtime</title>
+  <title>Visual Runtime Architecture — macOS Harness & Visual Runtime</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -203,7 +203,7 @@
     }
     .cpp-layer .item:hover { background: rgba(var(--tint-rgb),0.12); }
 
-    /* ─── Engine-side layers ─── */
+    /* ─── Visual-runtime layers ─── */
     .entry-layer {
       background: rgba(var(--tint-rgb),0.03);
       border-color: rgba(var(--tint-rgb),0.12);
@@ -412,7 +412,7 @@
   <div class="page">
     <header>
       <h1>macOS Harness & Visual Runtime</h1>
-      <p>Architecture diagram for the graphics engine mentoring cohort</p>
+      <p>Architecture diagram for the visual runtime mentoring cohort</p>
     </header>
 
     <section class="diagram" aria-label="Architecture diagram">
@@ -433,8 +433,8 @@
                 <div class="tooltip">NSViewRepresentable bridging<br>SwiftUI to a CAMetalLayer.</div>
               </div>
               <div class="item">
-                EngineSession
-                <div class="tooltip">Orchestrates EngineHost and<br>schedules per-frame ticks.</div>
+                VisualRuntimeSession
+                <div class="tooltip">Orchestrates VisualRuntimeHost and<br>schedules per-frame ticks.</div>
               </div>
             </div>
           </div>
@@ -442,11 +442,11 @@
             <div class="layer-title">C++ Host Layer</div>
             <div class="items">
               <div class="item">
-                EngineHost
+                VisualRuntimeHost
                 <div class="tooltip">Objective-C++ bridge.<br>Connects Swift to the C++ module.</div>
               </div>
               <div class="item">
-                EngineModule
+                VisualRuntimeModule
                 <div class="tooltip">Manages the dylib lifecycle:<br>load, bind API, init, tick, reload.</div>
               </div>
               <div class="item">
@@ -464,22 +464,22 @@
       <!-- API Boundary -->
       <div class="boundary">
         <div class="boundary-core">
-          <div class="boundary-label">Engine API Boundary</div>
+          <div class="boundary-label">Visual Runtime API Boundary</div>
           <div class="boundary-items">
             <div class="item">
-              EngineAPI
+              VisualRuntimeAPI
               <div class="tooltip">C struct of function pointers:<br>init, resize, update, shutdown.</div>
             </div>
             <div class="item">
               SurfaceDescriptor
-              <div class="tooltip">macOS Metal layer handle + width/height<br>passed to the engine on init.</div>
+              <div class="tooltip">macOS Metal layer handle + width/height<br>passed to the visual runtime on init.</div>
             </div>
             <div class="item">
-              EngineState
-              <div class="tooltip">Mutable frame counter &amp; elapsed time<br>the engine updates each tick.</div>
+              VisualRuntimeState
+              <div class="tooltip">Mutable frame counter &amp; elapsed time<br>the visual runtime updates each tick.</div>
             </div>
             <div class="item">
-              engine_get_api
+              visual_runtime_get_api
               <div class="tooltip">extern "C" entry point the host<br>calls to retrieve the API table.</div>
             </div>
           </div>
@@ -494,10 +494,10 @@
         <div class="block-title"><span class="swatch"></span> Visual Runtime <span style="text-transform:none; font-weight:500; font-size:1rem; color:var(--base-600); margin-left:0.3rem;">(reloadable dylib)</span></div>
         <div class="layers">
           <div class="layer entry-layer">
-            <div class="layer-title">Engine Entry Layer</div>
+            <div class="layer-title">Visual Runtime Entry Layer</div>
             <div class="items">
               <div class="item">
-                engine.cpp
+                visual_runtime.cpp
                 <div class="tooltip">Static API table + lifecycle impls<br>that forward to the Renderer.</div>
               </div>
             </div>

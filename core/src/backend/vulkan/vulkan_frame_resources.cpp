@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <utility>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 bool VulkanFrameResources::create_frame_resources(
     const VulkanContext &context, VkCommandPool command_pool, uint32_t width,
@@ -201,4 +201,4 @@ bool VulkanFrameResources::create_command_buffers(const VulkanContext &context,
   return true;
 }
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

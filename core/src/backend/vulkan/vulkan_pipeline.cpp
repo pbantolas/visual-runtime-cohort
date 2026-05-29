@@ -5,7 +5,7 @@
 #include <array>
 #include <vector>
 
-namespace engine::vulkan {
+namespace visual_runtime::vulkan {
 
 bool VulkanPipeline::create(const VulkanContext &context,
                             const VulkanPipelineConfig &config) {
@@ -185,4 +185,4 @@ bool VulkanPipeline::create_shader_module(const VulkanContext &context,
                   "failed to create Vulkan shader module");
 }
 
-} // namespace engine::vulkan
+} // namespace visual_runtime::vulkan

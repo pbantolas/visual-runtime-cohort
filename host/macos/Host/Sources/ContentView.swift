@@ -2,21 +2,21 @@ import AppKit
 import SwiftUI
 
 public struct ContentView: View {
-    let engineSession: EngineSession
+    let session: VisualRuntimeSession
 
-    public init(engineSession: EngineSession) {
-        self.engineSession = engineSession
+    public init(session: VisualRuntimeSession) {
+        self.session = session
     }
 
     public var body: some View {
         ZStack(alignment: .topLeading) {
-            MetalView(engineSession: engineSession)
+            MetalView(session: session)
 
-            WindowDragView(engineSession: engineSession)
+            WindowDragView(session: session)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("q to close, r to reload")
-                Text("backend: \(engineSession.backendName)")
+                Text("backend: \(session.backendName)")
             }
             .font(.body.monospaced().weight(.medium))
             .foregroundStyle(.white)
@@ -29,20 +29,20 @@ public struct ContentView: View {
 }
 
 private struct WindowDragView: NSViewRepresentable {
-    let engineSession: EngineSession
+    let session: VisualRuntimeSession
 
     func makeNSView(context: Context) -> NSView {
-        WindowDraggingNSView(engineSession: engineSession)
+        WindowDraggingNSView(session: session)
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 private final class WindowDraggingNSView: NSView {
-    private let engineSession: EngineSession
+    private let session: VisualRuntimeSession
 
-    init(engineSession: EngineSession) {
-        self.engineSession = engineSession
+    init(session: VisualRuntimeSession) {
+        self.session = session
         super.init(frame: .zero)
     }
 
@@ -67,7 +67,7 @@ private final class WindowDraggingNSView: NSView {
         case "q":
             NSApp.terminate(nil)
         case "r":
-            engineSession.reload()
+            session.reload()
         default:
             super.keyDown(with: event)
         }
